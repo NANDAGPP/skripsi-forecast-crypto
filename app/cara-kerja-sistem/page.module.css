@@ -1,0 +1,19 @@
+.container {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 52px 28px 120px;
+}
+@media (max-width: 640px) {
+  .container { padding: 32px 16px 90px; }
+}
+
+.heading {
+  margin: 0;
+  font: 400 56px/1.08 'PP Editorial New', 'Instrument Serif', serif;
+  letter-spacing: -.01em;
+  max-width: 800px;
+  text-wrap: pretty;
+}
+@media (max-width: 640px) {
+  .heading { font-size: clamp(28px, 8.5vw, 56px); }
+}

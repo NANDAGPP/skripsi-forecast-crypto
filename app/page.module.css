@@ -1,0 +1,83 @@
+.container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 44px 28px 120px;
+  position: relative;
+}
+@media (max-width: 640px) {
+  .container { padding: 28px 16px 90px; }
+}
+
+.assetGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  max-width: 760px;
+}
+@media (max-width: 480px) {
+  .assetGrid { gap: 8px; }
+}
+
+.assetBtn {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 20px 22px 18px;
+  border-radius: 22px;
+  cursor: pointer;
+  color: var(--ink);
+  transition: background .25s, box-shadow .25s;
+}
+@media (max-width: 560px) {
+  .assetBtn { padding: 14px 12px 13px; gap: 7px; border-radius: 16px; }
+}
+
+.assetPrice {
+  font: 400 30px/1.1 'PP Editorial New', 'Instrument Serif', serif;
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  .assetPrice { font-size: clamp(15px, 5.6vw, 24px); }
+}
+
+.priceShort { display: none; }
+@media (max-width: 520px) {
+  .priceFull { display: none; }
+  .priceShort { display: inline; }
+}
+
+.assetPair {
+  font: 400 15px 'IBM Plex Mono', monospace;
+  letter-spacing: .02em;
+}
+@media (max-width: 560px) {
+  .assetPair { font-size: 12px; }
+}
+
+.forecastNum {
+  font: 400 76px/1 'PP Editorial New', 'Instrument Serif', serif;
+  letter-spacing: -.01em;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .forecastNum { font-size: clamp(32px, 11vw, 60px); }
+}
+
+.riskMoney {
+  font: 400 30px/1.1 'PP Editorial New', 'Instrument Serif', serif;
+  color: var(--risk);
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .riskMoney { font-size: clamp(22px, 7vw, 30px); }
+}
+
+.sentiScore {
+  font: 400 42px/1 'PP Editorial New', 'Instrument Serif', serif;
+}
+@media (max-width: 640px) {
+  .sentiScore { font-size: clamp(30px, 9vw, 42px); }
+}
