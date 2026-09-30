@@ -4,28 +4,25 @@
  * ABSTRAKSI SENTRAL OTENTIKASI & IDENTITAS AKTOR
  * 
  * Sesuai batasan skripsi:
- * "Sediakan satu berkas lib/auth.ts berisi fungsi getAktorSaatIni() yang untuk
- *  sekarang mengembalikan aktor tiruan, dan komentar yang menyatakan bahwa
- *  pemeriksaan sesungguhnya akan dipasang di sini ketika backend siap. Satu
- *  tempat, bukan tersebar."
+ * 1. "getAktorSaatIni() tanpa argumen, dan peran aktor tiruannya dipilih lewat
+ *    satu konstanta di berkas itu saja."
+ * 2. Pemisahan Kewenangan (Separation of Duties), Bukan Pewarisan:
+ *    - ADMINISTRATOR hanya berwenang atas operasional harian (/admin, KF-16 s.d. KF-18).
+ *    - SUPER_ADMINISTRATOR hanya berwenang atas tata kelola sistem (/super-admin, KF-19 s.d. KF-21).
+ *    - Tidak ada peran yang mewarisi peran lain. Super admin yang mengakses /admin
+ *      akan ditolak (403), begitu juga admin yang mengakses /super-admin.
  * 
- * ARSITEKTUR KETIKA BACKEND SIAP:
+ * ARSITEKTUR KETIKA BACKEND SIAP (SAMPLE_MODE = false):
  * 1. Penyimpanan Kredensial:
- *    - Tidak ada kata sandi yang disimpan atau diperiksa di sisi klien/frontend.
- *    - Backend mengamankan kata sandi menggunakan hash kuat di sisi server:
- *      Argon2id atau Bcrypt dengan salt unik per pengguna.
+ *    - Backend mengamankan kata sandi menggunakan hash kuat di sisi server (Argon2id/Bcrypt).
+ *    - Frontend tidak pernah menyimpan atau memverifikasi kata sandi di sisi klien.
  * 2. Manajemen Sesi:
- *    - Otentikasi berbasis sesi terenkripsi / HTTP-Only Cookie yang dikirimkan
- *      langsung oleh pustaka bawaan framework (Next.js server session / backend).
- *    - Kebal dari serangan XSS karena JavaScript peramban tidak dapat membaca cookie.
- * 3. Prosedur Reset Kata Sandi:
- *    - Reset kata sandi dilakukan langsung oleh Super Administrator di /super-admin.
- *    - Tidak menggunakan jalur surel (self-contained untuk operasional tertutup).
- *    - Server membangkitkan kredensial sementara untuk diserahkan ke administrator terkait.
+ *    - Menggunakan HTTP-Only Cookie yang dikelola pustaka bawaan framework/server.
+ * 3. Reset Kata Sandi:
+ *    - Dilakukan langsung oleh Super Administrator dari antarmuka /super-admin tanpa jalur surel.
  * 4. Pintu Pemeriksaan:
- *    - Fungsi di berkas ini akan menjadi satu-satunya jembatan pemanggilan
- *      ke API verifikasi sesi backend (/api/auth/me) untuk menentukan identitas
- *      dan hak akses aktor yang sedang aktif.
+ *    - Fungsi getAktorSaatIni() di berkas ini akan menjadi satu-satunya jembatan pemanggilan
+ *      ke API verifikasi sesi backend tanpa mengubah tanda tangan fungsinya.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -42,12 +39,11 @@ export interface Aktor {
 }
 
 /**
- * Data aktor tiruan untuk keperluan evaluasi antarmuka dan pengujian black box
- * selama backend belum tersedia (SAMPLE_MODE = true).
+ * Data aktor tiruan untuk pengujian black box selama SAMPLE_MODE = true.
  */
 export const AKTOR_TIRUAN_SUPER_ADMIN: Aktor = {
   id: 'super-01',
-  nama: 'Super Administrator',
+  nama: 'Super Administrator Utama',
   surel: 'superadmin@contoh',
   peran: 'SUPER_ADMINISTRATOR',
   terakhirMasuk: '2026-09-30T06:00:00Z',
@@ -62,24 +58,27 @@ export const AKTOR_TIRUAN_ADMIN: Aktor = {
 };
 
 /**
+ * SATU-SATUNYA KONSTANTA PENENTU AKTOR AKTIF DALAM MODE CONTOH
+ * Ubah nilai ini di berkas ini saja untuk beralih konteks aktor saat pengujian.
+ */
+export const AKTOR_AKTIF_MODE_CONTOH: PeranAktor = 'ADMINISTRATOR';
+
+/**
  * Mengambil informasi aktor yang sedang aktif.
  * 
- * Saat ini (SAMPLE_MODE = true):
- * Mengembalikan aktor tiruan sesuai parameter peran yang diminta (bawaan: SUPER_ADMINISTRATOR).
- * 
- * Nanti (SAMPLE_MODE = false & Backend Siap):
- * Bagian ini akan membaca header/cookie sesi server, memverifikasi tanda tangan sesi
- * ke backend, dan mengembalikan profil pengguna yang diautentikasi secara sah.
+ * Tanda tangan fungsi ini sengaja tanpa argumen:
+ * Identitas aktor selalu ditentukan oleh sesi (atau konstanta mode contoh),
+ * bukan oleh pemanggil fungsi.
  */
-export function getAktorSaatIni(peranDiminta: PeranAktor = 'SUPER_ADMINISTRATOR'): Aktor {
+export function getAktorSaatIni(): Aktor {
   if (SAMPLE_MODE) {
-    if (peranDiminta === 'ADMINISTRATOR') {
-      return AKTOR_TIRUAN_ADMIN;
+    if (AKTOR_AKTIF_MODE_CONTOH === 'SUPER_ADMINISTRATOR') {
+      return AKTOR_TIRUAN_SUPER_ADMIN;
     }
-    return AKTOR_TIRUAN_SUPER_ADMIN;
+    return AKTOR_TIRUAN_ADMIN;
   }
 
-  // TODO: Ketika backend siap, pasang pemanggilan sesi server riil di sini:
+  // TODO: Ketika backend siap, pasang pembacaan sesi server riil di sini tanpa mengubah tanda tangan fungsi:
   // const sesi = await ambilSesiServer();
   // return sesi.pengguna;
   throw new Error('Backend otentikasi belum terhubung. Aktifkan SAMPLE_MODE untuk pengujian.');

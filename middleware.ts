@@ -12,12 +12,15 @@ import { SAMPLE_MODE } from '@/lib/api';
  * 2. Seluruh intersepsi lalu lintas rute HTML maupun panggilan API pengelolaan
  *    terpusat di sini sebelum mencapai Next.js page renderer atau route handler.
  * 
- * ATURAN AKSES:
+ * ATURAN AKSES (Pemisahan Kewenangan Tanpa Pewarisan Peran):
  * - 6 Halaman Pengguna publik (/, /kalkulator-risiko, /performa-model,
  *   /validasi, /cara-kerja-sistem, /persetujuan) selalu terbuka untuk publik.
- * - Halaman /admin dan endpoint /api/admin/* diperuntukkan bagi Administrator
- *   dan Super Administrator.
- * - Halaman /super-admin dan endpoint /api/super/* hanya untuk Super Administrator.
+ * - Halaman /admin dan endpoint /api/admin/* HANYA untuk peran ADMINISTRATOR.
+ *   Super Administrator yang membuka /admin ditolak.
+ * - Halaman /super-admin dan endpoint /api/super/* HANYA untuk peran SUPER_ADMINISTRATOR.
+ *   Administrator yang membuka /super-admin ditolak.
+ * - Pemisahan ini mutlak agar catatan jejak log tindakan (KF-21) tidak bias
+ *   dan dapat dipertanggungjawabkan pada pengujian sistem.
  * 
  * STATUS SAAT INI (SAMPLE_MODE = true):
  * - Backend belum tersedia. Untuk keperluan evaluasi akademik dan pengujian
@@ -51,7 +54,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // 3. LOGIKA KETIKA BACKEND SUDAH SIAP (SAMPLE_MODE = false):
-  //    Contoh implementasi yang akan dipasang:
+  //    Pemisahan kewenangan ketat (Separation of Duties), tanpa pewarisan:
   //
   //    const sessionCookie = request.cookies.get('session_token')?.value;
   //    if (!sessionCookie) {
@@ -66,11 +69,11 @@ export async function middleware(request: NextRequest) {
   //    const user = await verifikasiSesiBackend(sessionCookie);
   //    if (pathname.startsWith('/super-admin') || pathname.startsWith('/api/super')) {
   //      if (user.peran !== 'SUPER_ADMINISTRATOR') {
-  //        return NextResponse.json({ error: 'Akses ditolak: Memerlukan hak Super Administrator' }, { status: 403 });
+  //        return NextResponse.json({ error: 'Akses ditolak: Khusus Super Administrator' }, { status: 403 });
   //      }
   //    } else if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
-  //      if (user.peran !== 'ADMINISTRATOR' && user.peran !== 'SUPER_ADMINISTRATOR') {
-  //        return NextResponse.json({ error: 'Akses ditolak: Memerlukan hak Administrator' }, { status: 403 });
+  //      if (user.peran !== 'ADMINISTRATOR') {
+  //        return NextResponse.json({ error: 'Akses ditolak: Khusus Administrator' }, { status: 403 });
   //      }
   //    }
 
