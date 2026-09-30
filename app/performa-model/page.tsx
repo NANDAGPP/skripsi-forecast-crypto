@@ -318,7 +318,7 @@ export default function PerformaModelPage() {
               </p>
               <svg viewBox="0 0 720 220" style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}>
                 {data.errBars.map((b, i) => (
-                  <rect key={i} x={b.x} y={b.y} width={b.w} height={b.h} rx="3" fill="var(--barfill)" />
+                  <rect key={i} x={b.x} y={b.y} width={b.w} height={b.h} rx="3" fill="var(--barfill)" className={styles.errBar} />
                 ))}
                 <line x1="46" y1="182" x2="706" y2="182" stroke="var(--line)" strokeWidth="1" />
                 <line x1={data.zeroX} y1="10" x2={data.zeroX} y2="182" stroke="var(--ink)" strokeWidth="1.4" />

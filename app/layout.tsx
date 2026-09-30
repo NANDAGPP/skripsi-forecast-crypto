@@ -11,7 +11,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'RECASTFORLIFE',
+  title: 'Forecastforlyfe',
   description: 'Perkiraan harga dan ukuran risiko BTC, ETH, dan BNB untuk keperluan penelitian akademik.',
   icons: {
     icon: '/logo.png',

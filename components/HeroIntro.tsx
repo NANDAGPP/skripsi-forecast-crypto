@@ -67,7 +67,7 @@ export default function HeroIntro() {
               transition: `opacity .9s ease, letter-spacing 1.5s ${EASE}, transform .8s ${EASE}`,
             }}
           >
-            RECASTFORLIFE
+            Forecastforlyfe
           </span>
           <div
             style={{

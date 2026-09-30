@@ -339,6 +339,7 @@ export default function DashboardPage() {
               <path d={chart.linePath} fill="none" stroke="var(--line3)" strokeWidth="2" strokeLinejoin="round" />
               <path d={chart.fcPath} fill="none" stroke={dirColor} strokeWidth="2" strokeDasharray="5 4" />
               <circle cx={chart.lastX} cy={chart.lastY} r="3.5" fill="var(--line3)" />
+              <circle cx={chart.fcX} cy={chart.fcY} r="6" fill="none" stroke={dirColor} className={styles.pulseRing} />
               <circle cx={chart.fcX} cy={chart.fcY} r="6" fill="#fff" stroke={dirColor} strokeWidth="2.5" />
               <text x={chart.fcLabelX} y={chart.fcLabelY} fill={dirColor} textAnchor="end" style={{ font: "400 11.5px 'IBM Plex Mono',monospace" }}>perkiraan</text>
             </svg>

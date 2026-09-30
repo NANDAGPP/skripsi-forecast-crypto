@@ -17,3 +17,28 @@
 @media (max-width: 640px) {
   .heading { font-size: clamp(28px, 8.5vw, 56px); }
 }
+
+.faqItem {
+  border-radius: 20px;
+  transition: background 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.faqAnswer {
+  animation: slideDownFade 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.trackCard {
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.trackCard:hover {
+  transform: translateY(-2.5px);
+  box-shadow: var(--shadow-hover) !important;
+}
+
+.limitCard {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.limitCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover) !important;
+}

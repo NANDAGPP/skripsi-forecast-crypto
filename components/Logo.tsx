@@ -23,7 +23,7 @@ export default function Logo({ size = 'md', showText = true, className }: LogoPr
         textDecoration: 'none',
         color: 'inherit',
       }}
-      aria-label="RECASTFORLIFE"
+      aria-label="Forecastforlyfe"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -46,13 +46,12 @@ export default function Logo({ size = 'md', showText = true, className }: LogoPr
             fontFamily: "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
             fontWeight: 700,
             fontSize,
-            letterSpacing: '0.02em',
+            letterSpacing: '0.01em',
             color: 'var(--ink)',
             lineHeight: 1,
-            textTransform: 'uppercase',
           }}
         >
-          RECASTFORLIFE
+          Forecastforlyfe
         </span>
       )}
     </Link>

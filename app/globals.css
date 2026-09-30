@@ -70,6 +70,7 @@
   --onink2: #b3bcc5;
   --panel: #1e242b;
   --shadow: 0 2px 18px rgba(30, 36, 43, .06);
+  --shadow-hover: 0 8px 26px rgba(30, 36, 43, .12);
   --navbg: rgba(223, 228, 236, .82);
   color-scheme: light;
 }
@@ -104,8 +105,38 @@
   --onink2: #7c8794;
   --panel: #28323b;
   --shadow: 0 2px 18px rgba(0, 0, 0, .34);
+  --shadow-hover: 0 10px 30px rgba(0, 0, 0, .5);
   --navbg: rgba(18, 23, 28, .84);
   color-scheme: dark;
+}
+
+@keyframes slideDownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseRadar {
+  0% {
+    r: 6px;
+    opacity: 0.85;
+    stroke-width: 2px;
+  }
+  70% {
+    r: 15px;
+    opacity: 0.15;
+    stroke-width: 1px;
+  }
+  100% {
+    r: 18px;
+    opacity: 0;
+    stroke-width: 0.5px;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -118,6 +149,7 @@ body {
   color: var(--ink);
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 a { color: var(--risk); text-decoration: none; }

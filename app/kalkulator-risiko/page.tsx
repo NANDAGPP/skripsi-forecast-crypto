@@ -17,7 +17,15 @@ const INK = 'var(--ink)';
 const DOWN = 'var(--down)';
 
 export default function KalkulatorRisikoPage() {
-  const [qty, setQty] = useState<number[]>(ASSETS.map((a) => a.def));
+  const [rawQty, setRawQty] = useState<string[]>(ASSETS.map((a) => String(a.def)));
+  const qty = useMemo(
+    () =>
+      rawQty.map((v) => {
+        const n = parseFloat(v);
+        return isNaN(n) || n < 0 ? 0 : n;
+      }),
+    [rawQty]
+  );
   const [tip, setTip] = useState<Tip>(null);
   const [methodsOpen, setMethodsOpen] = useState(false);
 
@@ -171,7 +179,7 @@ export default function KalkulatorRisikoPage() {
                   Kepemilikan Anda
                 </span>
                 <button
-                  onClick={() => setQty(ASSETS.map((a) => a.def))}
+                  onClick={() => setRawQty(ASSETS.map((a) => String(a.def)))}
                   style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: "400 13px 'IBM Plex Sans',sans-serif", color: 'var(--risk)', borderBottom: '1px solid var(--linkline)' }}
                 >
                   Kembalikan ke contoh
@@ -193,10 +201,26 @@ export default function KalkulatorRisikoPage() {
                         type="number"
                         step={a.step}
                         min={0}
-                        value={qty[i]}
+                        placeholder="0"
+                        value={rawQty[i]}
+                        onFocus={(e) => {
+                          if (e.target.value === '0') {
+                            e.target.select();
+                          }
+                        }}
                         onChange={(e) => {
-                          const v = Math.max(0, Number(e.target.value) || 0);
-                          setQty((s) => { const q = s.slice(); q[i] = v; return q; });
+                          let val = e.target.value;
+                          if (val.startsWith('-')) return;
+                          if (/^0+[1-9]/.test(val)) {
+                            val = val.replace(/^0+/, '');
+                          } else if (/^0+$/.test(val)) {
+                            val = '0';
+                          }
+                          setRawQty((s) => {
+                            const q = s.slice();
+                            q[i] = val;
+                            return q;
+                          });
                         }}
                         aria-label={'Jumlah ' + a.short + ' yang dimiliki'}
                         style={{ width: '100%', minWidth: 0, height: 48, padding: '0 14px', border: '1px solid var(--line)', background: 'var(--card)', borderRadius: 14, font: "400 17px 'IBM Plex Mono',monospace", color: 'var(--ink)' }}
@@ -280,10 +304,10 @@ export default function KalkulatorRisikoPage() {
                   </g>
                 ))}
                 {data.bars.map((b, i) => (
-                  <rect key={i} x={b.x} y={b.y} width={b.w} height={b.h} rx="3" fill={b.fill} />
+                  <rect key={i} x={b.x} y={b.y} width={b.w} height={b.h} rx="3" fill={b.fill} className={styles.histBar} />
                 ))}
-                <line x1={data.varX.toFixed(1)} y1="12" x2={data.varX.toFixed(1)} y2="256" stroke="var(--down)" strokeWidth="1.6" strokeDasharray="5 4" />
-                <text x={(data.varX + 6).toFixed(1)} y="26" fill="var(--down)" textAnchor={data.varAnchor} style={{ font: "400 11.5px 'IBM Plex Mono',monospace" }}>
+                <line x1={data.varX.toFixed(1)} y1="12" x2={data.varX.toFixed(1)} y2="256" stroke="var(--down)" strokeWidth="1.6" strokeDasharray="5 4" className={styles.varLine} />
+                <text x={(data.varX + 6).toFixed(1)} y="26" fill="var(--down)" textAnchor={data.varAnchor} style={{ font: "400 11.5px 'IBM Plex Mono',monospace" }} className={styles.varText}>
                   batas kerugian
                 </text>
                 <line x1="46" y1="256" x2="700" y2="256" stroke="var(--line)" strokeWidth="1" />
@@ -372,7 +396,7 @@ export default function KalkulatorRisikoPage() {
                 </span>
               </button>
               {methodsOpen && (
-                <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div className={styles.dropdownContent} style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {data.methods.map((m) => (
                     <div key={m.name} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap', padding: '20px 22px', borderRadius: 18, background: m.highlight ? 'var(--surf2)' : 'var(--surf3)' }}>
                       <span style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>

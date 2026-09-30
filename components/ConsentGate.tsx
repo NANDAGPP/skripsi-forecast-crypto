@@ -1,6 +1,7 @@
 'use client';
 
 import { useSyncExternalStore, useState, type ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   subscribeConsent,
   getConsentSnapshot,
@@ -21,11 +22,22 @@ const EXP_OPTIONS = [
 ];
 
 export default function ConsentGate({ children }: { children: ReactNode }) {
+  const pathname = usePathname() || '';
   const consented = useSyncExternalStore(subscribeConsent, getConsentSnapshot, getConsentServerSnapshot);
   const [experience, setExperience] = useState('');
   const [willing, setWilling] = useState(false);
   const [agree, setAgree] = useState(false);
   const [attempted, setAttempted] = useState(false);
+
+  // Bypass persetujuan responden riset untuk rute login dan administrasi
+  if (
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/register') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/super-admin')
+  ) {
+    return <>{children}</>;
+  }
 
   if (consented) return <>{children}</>;
 

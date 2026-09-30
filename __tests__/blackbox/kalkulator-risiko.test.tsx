@@ -90,4 +90,22 @@ describe('Blackbox: Kalkulator Risiko Portofolio (Halaman & Fungsionalitas)', ()
     expect(screen.getByText('FHS tanpa penyesuaian rata-rata')).toBeInTheDocument();
     expect(screen.getByText('FHS dengan penyesuaian rata-rata')).toBeInTheDocument();
   });
+
+  it('TC-BB-KR-06: Mengizinkan input dikosongkan dan menghapus angka nol di depan saat mengetik', () => {
+    render(<KalkulatorRisikoPage />);
+
+    const btcInput = screen.getByLabelText(/Jumlah BTC yang dimiliki/i) as HTMLInputElement;
+
+    // Menghapus/mengosongkan input
+    fireEvent.change(btcInput, { target: { value: '' } });
+    expect(btcInput.value).toBe('');
+
+    // Mengetik angka saat bernilai 0 (menghilangkan leading zero)
+    fireEvent.change(btcInput, { target: { value: '05' } });
+    expect(btcInput.value).toBe('5');
+
+    // Mengetik desimal 0.05
+    fireEvent.change(btcInput, { target: { value: '0.05' } });
+    expect(btcInput.value).toBe('0.05');
+  });
 });

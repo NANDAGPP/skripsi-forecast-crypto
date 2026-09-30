@@ -59,7 +59,7 @@ export default function CaraKerjaSistemPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 16 }}>
                 {TRACKS.map((t) => (
-                  <div key={t.title} style={{ background: 'var(--surf2)', borderRadius: 24, padding: '24px 24px 22px', borderTop: '3px solid ' + t.dot }}>
+                  <div key={t.title} className={styles.trackCard} style={{ background: 'var(--surf2)', borderRadius: 24, padding: '24px 24px 22px', borderTop: '3px solid ' + t.dot }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: t.dot, display: 'block' }} />
                       <span style={{ font: "400 12px 'IBM Plex Mono',monospace", letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink2)' }}>{t.kicker}</span>
@@ -73,20 +73,20 @@ export default function CaraKerjaSistemPage() {
                           </span>
                           <span style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
                             <span style={{ font: "400 15px/1.45 'IBM Plex Sans',sans-serif" }}>{s.title}</span>
-                            <span style={{ font: "400 13px/1.6 'IBM Plex Sans',sans-serif", color: 'var(--ink2)', textWrap: 'pretty' }}>{s.body}</span>
+                            <span style={{ font: "400 13px/1.55 'IBM Plex Sans',sans-serif", color: 'var(--ink2)' }}>{s.body}</span>
                           </span>
                         </div>
                       ))}
                     </div>
-                    <div style={{ marginTop: 14, padding: '16px 18px', background: 'color-mix(in srgb, var(--card) 60%, transparent)', borderRadius: 14, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      <span style={{ font: "400 11.5px 'IBM Plex Mono',monospace", letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink2)' }}>Yang Anda lihat</span>
-                      <span style={{ font: "400 15px/1.55 'IBM Plex Sans',sans-serif", textWrap: 'pretty' }}>{t.output}</span>
+                    <div style={{ marginTop: 16, padding: '14px 16px', background: 'var(--card)', borderRadius: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <span style={{ font: "400 11px 'IBM Plex Mono',monospace", letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink4)' }}>Keluaran</span>
+                      <span style={{ font: "400 13px/1.55 'IBM Plex Sans',sans-serif" }}>{t.output}</span>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div style={{ padding: '22px 24px', background: 'var(--surf2)', borderRadius: 20, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+              <div style={{ marginTop: 22, padding: '18px 22px', background: 'var(--surf2)', borderRadius: 18, display: 'flex', gap: 14, alignItems: 'center' }}>
                 <span style={{ width: 34, height: 34, flex: 'none', borderRadius: '50%', background: 'var(--lime)', color: 'var(--onlime)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "500 15px 'IBM Plex Sans',sans-serif" }}>
                   !
                 </span>
@@ -106,7 +106,7 @@ export default function CaraKerjaSistemPage() {
               {FAQS.map((f, i) => {
                 const isOpen = open === i;
                 return (
-                  <div key={f.q} style={{ borderRadius: 20, background: isOpen ? 'var(--surf2)' : 'var(--surf3)', transition: 'background .25s' }}>
+                  <div key={f.q} className={styles.faqItem} style={{ background: isOpen ? 'var(--surf2)' : 'var(--surf3)' }}>
                     <button
                       onClick={() => setOpen((s) => (s === i ? -1 : i))}
                       aria-expanded={isOpen}
@@ -144,7 +144,7 @@ export default function CaraKerjaSistemPage() {
                       </span>
                     </button>
                     {isOpen && (
-                      <p style={{ margin: 0, padding: '0 22px 22px', font: "400 14.5px/1.7 'IBM Plex Sans',sans-serif", color: 'var(--ink2)', maxWidth: 860, textWrap: 'pretty' }}>
+                      <p className={styles.faqAnswer} style={{ margin: 0, padding: '0 22px 22px', font: "400 14.5px/1.7 'IBM Plex Sans',sans-serif", color: 'var(--ink2)', maxWidth: 860, textWrap: 'pretty' }}>
                         {f.a}
                       </p>
                     )}
@@ -156,7 +156,7 @@ export default function CaraKerjaSistemPage() {
 
           <Reveal order={4} style={{ marginTop: 22, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 16 }}>
             {LIMITS.map((l) => (
-              <div key={l.title} style={{ background: 'var(--warm)', borderRadius: 22, padding: '24px 26px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <div key={l.title} className={styles.limitCard} style={{ background: 'var(--warm)', borderRadius: 22, padding: '24px 26px', display: 'flex', flexDirection: 'column', gap: 9 }}>
                 <span style={{ font: "400 11.5px 'IBM Plex Mono',monospace", letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink2)' }}>
                   Batas yang perlu diketahui
                 </span>

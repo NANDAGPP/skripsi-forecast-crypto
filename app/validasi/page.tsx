@@ -203,7 +203,7 @@ export default function ValidasiPage() {
                         {mi + 1}
                       </text>
                       {tl.dots.map((d, di) => (
-                        <circle key={di} cx={d.cx} cy={y} r="4.5" fill={tl.color} opacity="0.85" />
+                        <circle key={di} cx={d.cx} cy={y} r="4.5" fill={tl.color} opacity="0.85" className={styles.timelineDot} />
                       ))}
                     </g>
                   );

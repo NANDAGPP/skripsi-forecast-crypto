@@ -27,3 +27,16 @@ window.IntersectionObserver = MockIntersectionObserver as unknown as typeof Inte
 window.HTMLMediaElement.prototype.play = () => Promise.resolve();
 window.HTMLMediaElement.prototype.pause = () => {};
 
+// Mock next/navigation for JSDOM
+import { vi } from 'vitest';
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/',
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+  }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
