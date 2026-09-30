@@ -322,3 +322,447 @@ export const LIMITS = [
   { title: 'Tiga aset saja', body: 'Sistem diuji pada BTC, ETH, dan BNB. Aset lain memiliki pola dan tingkat gejolak berbeda, sehingga model ini belum tentu berlaku untuknya.' },
   { title: 'Tidak membaca berita', body: 'Masukan model hanya berupa angka harga dan turunannya. Kabar, kebijakan, dan peristiwa di luar itu tidak diperhitungkan, padahal keduanya sering menjadi penyebab pergerakan terbesar.' },
 ];
+
+// ═════════════════════════════════════════════════════════════
+//  PENGELOLAAN ADMINISTRATOR & SUPER ADMIN — KF-16 s.d. KF-21
+// ═════════════════════════════════════════════════════════════
+
+// ── KF-16: Status Proses Batch Harian ────────────────────────
+export type BatchStatusRecord = {
+  tanggal: string;
+  mulai: string;
+  selesai?: string;
+  lama_detik: number;
+  status: 'berhasil' | 'gagal' | 'berjalan';
+  catatan: string | null;
+};
+
+export type BatchStatusResponse = {
+  terakhir: BatchStatusRecord;
+  riwayat: BatchStatusRecord[];
+};
+
+export const INITIAL_BATCH_STATUS: BatchStatusResponse = {
+  terakhir: {
+    tanggal: '2026-09-29',
+    mulai: '2026-09-29T00:05:00Z',
+    selesai: '2026-09-29T00:11:32Z',
+    lama_detik: 392,
+    status: 'berhasil',
+    catatan: null,
+  },
+  riwayat: [
+    {
+      tanggal: '2026-09-28',
+      mulai: '2026-09-28T00:05:00Z',
+      lama_detik: 377,
+      status: 'berhasil',
+      catatan: null,
+    },
+    {
+      tanggal: '2026-09-27',
+      mulai: '2026-09-27T00:05:00Z',
+      lama_detik: 12,
+      status: 'gagal',
+      catatan: 'API bursa tidak merespons setelah tiga kali percobaan',
+    },
+    {
+      tanggal: '2026-09-26',
+      mulai: '2026-09-26T00:05:00Z',
+      lama_detik: 412,
+      status: 'berhasil',
+      catatan: null,
+    },
+    {
+      tanggal: '2026-09-25',
+      mulai: '2026-09-25T00:05:00Z',
+      lama_detik: 385,
+      status: 'berhasil',
+      catatan: null,
+    },
+    {
+      tanggal: '2026-09-24',
+      mulai: '2026-09-24T00:05:00Z',
+      lama_detik: 431,
+      status: 'berhasil',
+      catatan: null,
+    },
+    {
+      tanggal: '2026-09-23',
+      mulai: '2026-09-23T00:05:00Z',
+      lama_detik: 48,
+      status: 'gagal',
+      catatan: 'Galat integritas data: Data lilin harga (candlestick) ETH/USDT tidak lengkap pada bursa sumber',
+    },
+    {
+      tanggal: '2026-09-22',
+      mulai: '2026-09-22T00:05:00Z',
+      lama_detik: 399,
+      status: 'berhasil',
+      catatan: null,
+    },
+    {
+      tanggal: '2026-09-21',
+      mulai: '2026-09-21T00:05:00Z',
+      lama_detik: 364,
+      status: 'berhasil',
+      catatan: null,
+    },
+    {
+      tanggal: '2026-09-20',
+      mulai: '2026-09-20T00:05:00Z',
+      lama_detik: 448,
+      status: 'berhasil',
+      catatan: null,
+    },
+    {
+      tanggal: '2026-09-19',
+      mulai: '2026-09-19T00:05:00Z',
+      lama_detik: 382,
+      status: 'berhasil',
+      catatan: null,
+    },
+    {
+      tanggal: '2026-09-18',
+      mulai: '2026-09-18T00:05:00Z',
+      lama_detik: 420,
+      status: 'berhasil',
+      catatan: null,
+    },
+    {
+      tanggal: '2026-09-17',
+      mulai: '2026-09-17T00:05:00Z',
+      lama_detik: 368,
+      status: 'berhasil',
+      catatan: null,
+    },
+    {
+      tanggal: '2026-09-16',
+      mulai: '2026-09-16T00:05:00Z',
+      lama_detik: 395,
+      status: 'berhasil',
+      catatan: null,
+    },
+  ],
+};
+
+// ── KF-17: Pemicu Pelatihan Ulang Model ───────────────────────
+export type RetrainResponse = {
+  diterima: boolean;
+  id_proses: string;
+  pesan: string;
+};
+
+// ── KF-18: Pengelolaan Daftar Pair ───────────────────────────
+export type MonitoredPair = {
+  pair: string;
+  nama: string;
+  dipantau: boolean;
+  data_mulai: string;
+  data_terakhir: string;
+};
+
+export const INITIAL_PAIRS: MonitoredPair[] = [
+  {
+    pair: 'BTCUSDT',
+    nama: 'Bitcoin',
+    dipantau: true,
+    data_mulai: '2021-01-01',
+    data_terakhir: '2026-09-28',
+  },
+  {
+    pair: 'ETHUSDT',
+    nama: 'Ethereum',
+    dipantau: true,
+    data_mulai: '2021-01-01',
+    data_terakhir: '2026-09-28',
+  },
+  {
+    pair: 'BNBUSDT',
+    nama: 'BNB Coin',
+    dipantau: true,
+    data_mulai: '2021-01-01',
+    data_terakhir: '2026-09-28',
+  },
+];
+
+// ── KF-19: Pengelolaan Akun Administrator ────────────────────
+export type AdminAccount = {
+  id: string;
+  nama: string;
+  surel: string;
+  aktif: boolean;
+  dibuat: string;
+  terakhir_masuk: string | null;
+};
+
+export const INITIAL_ACCOUNTS: AdminAccount[] = [
+  {
+    id: 'adm-01',
+    nama: 'Operator Harian',
+    surel: 'admin@contoh',
+    aktif: true,
+    dibuat: '2026-09-01T03:00:00Z',
+    terakhir_masuk: '2026-09-29T01:12:00Z',
+  },
+  {
+    id: 'adm-02',
+    nama: 'Operator Cadangan',
+    surel: 'operator2@contoh',
+    aktif: true,
+    dibuat: '2026-09-05T08:30:00Z',
+    terakhir_masuk: '2026-09-28T14:20:00Z',
+  },
+  {
+    id: 'super-01',
+    nama: 'Super Administrator Utama',
+    surel: 'superadmin@contoh',
+    aktif: true,
+    dibuat: '2026-08-15T00:00:00Z',
+    terakhir_masuk: '2026-09-30T06:00:00Z',
+  },
+];
+
+// ── KF-20: Konfigurasi Operasional Sistem ────────────────────
+export type OperationalConfig = {
+  tingkat_kepercayaan: number;
+  jendela_bobot_hari: number;
+  portofolio_ilustratif: number;
+  waktu_batch: string;
+};
+
+export const INITIAL_CONFIG: OperationalConfig = {
+  tingkat_kepercayaan: 0.95,
+  jendela_bobot_hari: 30,
+  portofolio_ilustratif: 100000000,
+  waktu_batch: '00:05',
+};
+
+// ── KF-21: Log Tindakan Administrator ────────────────────────
+export type AuditLogEntry = {
+  waktu: string;
+  aktor: string;
+  tindakan: string;
+  sasaran: string;
+  hasil: 'berhasil' | 'gagal';
+};
+
+export type AuditLogResponse = {
+  total: number;
+  halaman: number;
+  data: AuditLogEntry[];
+};
+
+export const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
+  {
+    waktu: '2026-09-29T08:12:00Z',
+    aktor: 'admin@contoh',
+    tindakan: 'Memicu pelatihan ulang model',
+    sasaran: 'BTC/USDT',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-28T21:40:00Z',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Mengubah panjang jendela bobot',
+    sasaran: '30 → 45 hari',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-28T14:03:00Z',
+    aktor: 'admin@contoh',
+    tindakan: 'Menonaktifkan pair',
+    sasaran: 'ADA/USDT',
+    hasil: 'gagal',
+  },
+  {
+    waktu: '2026-09-28T10:15:00Z',
+    aktor: 'admin@contoh',
+    tindakan: 'Menambah pair',
+    sasaran: 'ADA/USDT',
+    hasil: 'gagal',
+  },
+  {
+    waktu: '2026-09-27T16:20:00Z',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Mengubah portofolio ilustratif',
+    sasaran: 'Rp 100.000.000 → Rp 150.000.000',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-27T01:30:00Z',
+    aktor: 'admin@contoh',
+    tindakan: 'Pemeriksaan kegagalan batch',
+    sasaran: 'Batch 2026-09-27',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-26T11:00:00Z',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Mengubah konfigurasi operasional',
+    sasaran: 'Jendela bobot 120 hari',
+    hasil: 'gagal',
+  },
+  {
+    waktu: '2026-09-25T14:10:00Z',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Reset kata sandi administrator',
+    sasaran: 'adm-02 (operator2@contoh)',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-25T09:45:00Z',
+    aktor: 'admin@contoh',
+    tindakan: 'Memicu pelatihan ulang model',
+    sasaran: 'ETH/USDT',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-24T17:30:00Z',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Memperbarui nama akun administrator',
+    sasaran: 'adm-01 (Operator Harian)',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-24T08:05:00Z',
+    aktor: 'operator2@contoh',
+    tindakan: 'Pemeriksaan status batch',
+    sasaran: 'Batch 2026-09-24',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-23T08:15:00Z',
+    aktor: 'admin@contoh',
+    tindakan: 'Pemeriksaan kegagalan batch',
+    sasaran: 'Batch 2026-09-23',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-22T15:20:00Z',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Mengubah tingkat kepercayaan risiko',
+    sasaran: '95% → 99%',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-22T13:40:00Z',
+    aktor: 'admin@contoh',
+    tindakan: 'Memicu pelatihan ulang model',
+    sasaran: 'BNB/USDT',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-21T10:00:00Z',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Menonaktifkan akun administrator',
+    sasaran: 'adm-02 (operator2@contoh)',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-21T07:30:00Z',
+    aktor: 'admin@contoh',
+    tindakan: 'Pemeriksaan status batch',
+    sasaran: 'Batch 2026-09-21',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-20T16:45:00Z',
+    aktor: 'admin@contoh',
+    tindakan: 'Menambah pair',
+    sasaran: 'SOL/USDT',
+    hasil: 'gagal',
+  },
+  {
+    waktu: '2026-09-20T11:10:00Z',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Mengaktifkan kembali akun administrator',
+    sasaran: 'adm-02 (operator2@contoh)',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-19T14:25:00Z',
+    aktor: 'admin@contoh',
+    tindakan: 'Memicu pelatihan ulang model',
+    sasaran: 'BTC/USDT',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-18T18:00:00Z',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Mengubah waktu eksekusi batch',
+    sasaran: '00:00 → 00:05 WIB',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-17T09:12:00Z',
+    aktor: 'admin@contoh',
+    tindakan: 'Pemeriksaan status batch',
+    sasaran: 'Batch 2026-09-17',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-16T15:50:00Z',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Mengubah portofolio ilustratif',
+    sasaran: 'Nilai negatif (-50.000.000)',
+    hasil: 'gagal',
+  },
+  {
+    waktu: '2026-09-15T11:20:00Z',
+    aktor: 'admin@contoh',
+    tindakan: 'Memicu pelatihan ulang model',
+    sasaran: 'ETH/USDT',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-14T08:30:00Z',
+    aktor: 'operator2@contoh',
+    tindakan: 'Pemeriksaan status batch',
+    sasaran: 'Batch 2026-09-14',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-12T13:15:00Z',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Mengubah tingkat kepercayaan risiko',
+    sasaran: 'Nilai 85%',
+    hasil: 'gagal',
+  },
+  {
+    waktu: '2026-09-10T10:00:00Z',
+    aktor: 'admin@contoh',
+    tindakan: 'Memicu pelatihan ulang model',
+    sasaran: 'BNB/USDT',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-08T16:40:00Z',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Reset kata sandi administrator',
+    sasaran: 'adm-01 (admin@contoh)',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-05T08:30:00Z',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Membuat akun administrator baru',
+    sasaran: 'adm-02 (operator2@contoh)',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-02T14:10:00Z',
+    aktor: 'admin@contoh',
+    tindakan: 'Pemeriksaan status batch',
+    sasaran: 'Batch 2026-09-02',
+    hasil: 'berhasil',
+  },
+  {
+    waktu: '2026-09-01T03:00:00Z',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Membuat akun administrator baru',
+    sasaran: 'adm-01 (admin@contoh)',
+    hasil: 'berhasil',
+  },
+];
+

@@ -1,104 +1,53 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { listPairs, addPair, togglePairStatus, deletePair } from '@/lib/db/pairs';
-import { getSession } from '@/lib/auth/session';
-import { recordAuditLog } from '@/lib/db/audit';
+import { INITIAL_PAIRS, type MonitoredPair } from '@/lib/api';
 
+// State tiruan dalam memori untuk sesi pengetesan
+let pairsState: MonitoredPair[] = [...INITIAL_PAIRS];
+
+/**
+ * GET /api/admin/pairs
+ * ─────────────────────────────────────────────────────────────
+ * KF-18: Mengambil daftar pasangan aset kripto yang dipantau sistem.
+ * ─────────────────────────────────────────────────────────────
+ */
 export async function GET() {
-  try {
-    const pairs = listPairs();
-    return NextResponse.json({ pairs });
-  } catch (err) {
-    console.error('List pairs error:', err);
-    return NextResponse.json({ error: 'Gagal mengambil daftar pairs.' }, { status: 500 });
-  }
+  return NextResponse.json({
+    data: pairsState,
+  });
 }
 
+/**
+ * POST /api/admin/pairs
+ * ─────────────────────────────────────────────────────────────
+ * KF-18: Upaya penambahan pasangan aset baru.
+ * 
+ * Sesuai batasan masalah proposal:
+ * Penelitian dibatasi ketat pada BTC/USDT, ETH/USDT, dan BNB/USDT.
+ * Permintaan penambahan pair baru di luar ketiga aset ini ditolak
+ * dengan pesan peringatan metodologis.
+ * ─────────────────────────────────────────────────────────────
+ */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession();
-    const body = await request.json();
-    const { symbol, base_asset, quote_asset } = body;
+    const body = await request.json().catch(() => ({}));
+    const pairSymbol = (body.pair || '').toUpperCase().replace(/[^A-Z]/g, '');
 
-    if (!symbol || !base_asset || !quote_asset) {
-      return NextResponse.json(
-        { error: 'Simbol, base asset, dan quote asset wajib diisi.' },
-        { status: 400 }
-      );
-    }
-
-    const newPair = addPair(symbol, base_asset, quote_asset);
-
-    recordAuditLog({
-      user_id: session?.sub,
-      user_name: session?.name,
-      role: session?.role,
-      action: 'PAIR_CREATE',
-      details: `Menambahkan pasangan cryptocurrency baru: ${newPair.symbol}`,
-    });
-
-    return NextResponse.json({ pair: newPair });
-  } catch (err) {
-    console.error('Add pair error:', err);
-    return NextResponse.json({ error: 'Gagal menambahkan pair cryptocurrency.' }, { status: 500 });
-  }
-}
-
-export async function PATCH(request: NextRequest) {
-  try {
-    const session = await getSession();
-    const body = await request.json();
-    const { id } = body;
-
-    if (!id) {
-      return NextResponse.json({ error: 'ID pair wajib disertakan.' }, { status: 400 });
-    }
-
-    const res = togglePairStatus(id);
-    if (!res) {
-      return NextResponse.json({ error: 'Pair tidak ditemukan.' }, { status: 404 });
-    }
-
-    recordAuditLog({
-      user_id: session?.sub,
-      user_name: session?.name,
-      role: session?.role,
-      action: 'PAIR_STATUS_TOGGLE',
-      details: `Mengubah status pair ID ${id} menjadi ${res.status}`,
-    });
-
-    return NextResponse.json({ success: true, status: res.status });
-  } catch (err) {
-    console.error('Toggle pair status error:', err);
-    return NextResponse.json({ error: 'Gagal memperbarui status pair.' }, { status: 500 });
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const session = await getSession();
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json({ error: 'ID pair wajib disertakan.' }, { status: 400 });
-    }
-
-    const success = deletePair(id);
-    if (!success) {
-      return NextResponse.json({ error: 'Pair tidak ditemukan atau gagal dihapus.' }, { status: 404 });
-    }
-
-    recordAuditLog({
-      user_id: session?.sub,
-      user_name: session?.name,
-      role: session?.role,
-      action: 'PAIR_DELETE',
-      details: `Menghapus pasangan cryptocurrency ID ${id}`,
-    });
-
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error('Delete pair error:', err);
-    return NextResponse.json({ error: 'Gagal menghapus pair.' }, { status: 500 });
+    // Seluruh penambahan di luar 3 aset acuan ditolak sesuai batasan masalah skripsi
+    return NextResponse.json(
+      {
+        sukses: false,
+        pesan: 'Ruang lingkup penelitian dibatasi pada tiga pasangan aset. Menambah pasangan di luar itu membuat sistem tidak sesuai dengan batasan masalah.',
+        pair_diajukan: pairSymbol || null,
+      },
+      { status: 400 }
+    );
+  } catch {
+    return NextResponse.json(
+      {
+        sukses: false,
+        pesan: 'Format data tidak valid.',
+      },
+      { status: 400 }
+    );
   }
 }

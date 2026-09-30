@@ -53,30 +53,59 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 3. LOGIKA KETIKA BACKEND SUDAH SIAP (SAMPLE_MODE = false):
-  //    Pemisahan kewenangan ketat (Separation of Duties), tanpa pewarisan:
-  //
-  //    const sessionCookie = request.cookies.get('session_token')?.value;
-  //    if (!sessionCookie) {
-  //      if (pathname.startsWith('/api/')) {
-  //        return NextResponse.json({ error: 'Sesi tidak valid atau belum masuk' }, { status: 401 });
-  //      }
-  //      const loginUrl = new URL('/login', request.url);
-  //      loginUrl.searchParams.set('callbackUrl', pathname);
-  //      return NextResponse.redirect(loginUrl);
-  //    }
-  //
-  //    const user = await verifikasiSesiBackend(sessionCookie);
-  //    if (pathname.startsWith('/super-admin') || pathname.startsWith('/api/super')) {
-  //      if (user.peran !== 'SUPER_ADMINISTRATOR') {
-  //        return NextResponse.json({ error: 'Akses ditolak: Khusus Super Administrator' }, { status: 403 });
-  //      }
-  //    } else if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
-  //      if (user.peran !== 'ADMINISTRATOR') {
-  //        return NextResponse.json({ error: 'Akses ditolak: Khusus Administrator' }, { status: 403 });
-  //      }
-  //    }
+  // 3. KETIKA SAMPLE_MODE = false (Prinsip Keamanan Gagal-Menutup / Fail-Closed):
+  //    Jika verifikasi sesi backend belum tersambung secara riil, rute pengelolaan
+  //    dan API pengelolaan WAJIB ditutup (HTTP 503 Service Unavailable).
+  //    Enam halaman publik pengguna tetap lolos normal.
+  const isProtectedAdmin = pathname.startsWith('/admin') || pathname.startsWith('/api/admin');
+  const isProtectedSuper = pathname.startsWith('/super-admin') || pathname.startsWith('/api/super');
 
+  if (isProtectedAdmin || isProtectedSuper) {
+    const pesanGalat = 'Layanan otentikasi belum tersedia: Verifikasi sesi operasional belum tersambung ke backend.';
+
+    // Jika permintaan berupa panggilan endpoint API, kembalikan JSON 503
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        {
+          error: pesanGalat,
+          kode: 503,
+          bantuan: 'Aktifkan SAMPLE_MODE = true di lib/api.ts untuk mode pengujian, atau hubungkan layanan sesi backend.',
+        },
+        { status: 503 }
+      );
+    }
+
+    // Jika permintaan berupa akses halaman HTML peramban (/admin atau /super-admin), kembalikan dokumen 503
+    return new NextResponse(
+      `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <title>503 — Layanan Otentikasi Belum Tersedia</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #12171c; color: #e8edf2; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 24px; box-sizing: border-box; }
+    .card { max-width: 520px; background: #1a2128; border: 1px solid #39434d; border-radius: 16px; padding: 32px; text-align: center; }
+    h1 { font-size: 20px; margin: 0 0 12px; color: #e0857a; }
+    p { font-size: 14px; line-height: 1.6; color: #aab6c1; margin: 0 0 16px; }
+    .hint { font-size: 12px; color: #6b7884; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>503 — Layanan Otentikasi Belum Tersedia</h1>
+    <p>${pesanGalat}</p>
+    <div class="hint">Aktifkan SAMPLE_MODE = true pada lib/api.ts untuk melanjutkan pengujian antarmuka.</div>
+  </div>
+</body>
+</html>`,
+      {
+        status: 503,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      }
+    );
+  }
+
+  // Enam halaman pengguna publik tetap lolos seperti biasa
   return NextResponse.next();
 }
 

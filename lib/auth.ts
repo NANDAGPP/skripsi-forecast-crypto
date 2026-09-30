@@ -66,11 +66,14 @@ export const AKTOR_AKTIF_MODE_CONTOH: PeranAktor = 'ADMINISTRATOR';
 /**
  * Mengambil informasi aktor yang sedang aktif.
  * 
- * Tanda tangan fungsi ini sengaja tanpa argumen:
- * Identitas aktor selalu ditentukan oleh sesi (atau konstanta mode contoh),
- * bukan oleh pemanggil fungsi.
+ * Tanda tangan fungsi ini sengaja async dan tanpa argumen:
+ * - Async: Memastikan seluruh pemanggil di sisi halaman/komponen sejak awal
+ *   menggunakan 'await', sehingga saat diganti ke pemanggilan sesi riil (I/O network)
+ *   tidak akan merusak atau memerlukan refactoring pada berkas pemanggil.
+ * - Tanpa argumen: Identitas aktor selalu ditentukan oleh sesi (atau konstanta
+ *   mode contoh), bukan ditentukan oleh pemanggil fungsi.
  */
-export function getAktorSaatIni(): Aktor {
+export async function getAktorSaatIni(): Promise<Aktor> {
   if (SAMPLE_MODE) {
     if (AKTOR_AKTIF_MODE_CONTOH === 'SUPER_ADMINISTRATOR') {
       return AKTOR_TIRUAN_SUPER_ADMIN;
@@ -81,5 +84,5 @@ export function getAktorSaatIni(): Aktor {
   // TODO: Ketika backend siap, pasang pembacaan sesi server riil di sini tanpa mengubah tanda tangan fungsi:
   // const sesi = await ambilSesiServer();
   // return sesi.pengguna;
-  throw new Error('Backend otentikasi belum terhubung. Aktifkan SAMPLE_MODE untuk pengujian.');
+  throw new Error('Layanan otentikasi belum tersedia: Verifikasi sesi operasional belum tersambung ke backend.');
 }
