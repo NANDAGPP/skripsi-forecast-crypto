@@ -1,7 +1,4 @@
-'use client';
-
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
 import Logo from './Logo';
 
@@ -15,18 +12,7 @@ type NavBarProps =
   | { variant: 'sub'; subtitle: string; maxWidth?: number };
 
 export default function NavBar(props: NavBarProps) {
-  const router = useRouter();
   const maxWidth = props.maxWidth ?? 1240;
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } finally {
-      router.push('/login');
-      router.refresh();
-    }
-  };
-
   return (
     <div
       style={{
@@ -66,22 +52,6 @@ export default function NavBar(props: NavBarProps) {
               <span style={{ font: "400 12px 'IBM Plex Mono',monospace", color: 'var(--ink3)' }}>
                 Data per {props.stamp}
               </span>
-              <button
-                onClick={handleLogout}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--ink4)',
-                  font: "400 12px 'IBM Plex Sans',sans-serif",
-                  cursor: 'pointer',
-                  padding: '2px 6px',
-                  borderRadius: 6,
-                  textDecoration: 'none',
-                }}
-                title="Keluar dari sesi"
-              >
-                Keluar
-              </button>
               <ThemeToggle />
             </span>
           </>
@@ -96,22 +66,6 @@ export default function NavBar(props: NavBarProps) {
             <Link href="/" style={{ font: "400 13px 'IBM Plex Sans',sans-serif", textDecoration: 'none', borderBottom: '1px solid var(--linkline)' }}>
               ← Kembali ke dasbor
             </Link>
-            <button
-              onClick={handleLogout}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--ink4)',
-                font: "400 12px 'IBM Plex Sans',sans-serif",
-                cursor: 'pointer',
-                padding: '2px 6px',
-                borderRadius: 6,
-                textDecoration: 'none',
-              }}
-              title="Keluar dari sesi"
-            >
-              Keluar
-            </button>
             <ThemeToggle />
           </>
         )}
