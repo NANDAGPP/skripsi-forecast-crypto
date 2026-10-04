@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { INITIAL_PAIRS, type MonitoredPair } from '@/lib/api';
 
 // State tiruan dalam memori untuk sesi pengetesan
-let pairsState: MonitoredPair[] = [...INITIAL_PAIRS];
+const pairsState: MonitoredPair[] = [...INITIAL_PAIRS];
 
 /**
  * GET /api/admin/pairs

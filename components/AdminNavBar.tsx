@@ -131,43 +131,45 @@ export default function AdminNavBar({
         </div>
       </div>
 
-      {/* Baris Bawah: Tab Navigasi Role */}
-      <div
-        style={{
-          maxWidth,
-          margin: '0 auto',
-          padding: '0 clamp(14px, 2.5vw, 28px)',
-          display: 'flex',
-          gap: 6,
-          overflowX: 'auto',
-          scrollbarWidth: 'none',
-        }}
-      >
-        {tabs.map((tab) => {
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onSelectTab(tab.id)}
-              style={{
-                padding: '10px 16px',
-                border: 'none',
-                borderBottom: active ? '2px solid var(--ink)' : '2px solid transparent',
-                background: 'transparent',
-                color: active ? 'var(--ink)' : 'var(--ink3)',
-                font: active
-                  ? "500 13.5px 'IBM Plex Sans',sans-serif"
-                  : "400 13.5px 'IBM Plex Sans',sans-serif",
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'color .2s, border-color .2s',
-              }}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* Baris Bawah: Tab Navigasi Role (hanya jika tabs disediakan) */}
+      {tabs.length > 0 && (
+        <div
+          style={{
+            maxWidth,
+            margin: '0 auto',
+            padding: '0 clamp(14px, 2.5vw, 28px)',
+            display: 'flex',
+            gap: 6,
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+          }}
+        >
+          {tabs.map((tab) => {
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => onSelectTab(tab.id)}
+                style={{
+                  padding: '10px 16px',
+                  border: 'none',
+                  borderBottom: active ? '2px solid var(--ink)' : '2px solid transparent',
+                  background: 'transparent',
+                  color: active ? 'var(--ink)' : 'var(--ink3)',
+                  font: active
+                    ? "500 13.5px 'IBM Plex Sans',sans-serif"
+                    : "400 13.5px 'IBM Plex Sans',sans-serif",
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  transition: 'color .2s, border-color .2s',
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </header>
   );
 }

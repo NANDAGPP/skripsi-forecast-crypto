@@ -13,8 +13,6 @@ function LoginFormContent() {
   const callbackUrl = searchParams.get('callbackUrl') || '';
   const errorParam = searchParams.get('error') || '';
 
-  const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(
@@ -30,18 +28,15 @@ function LoginFormContent() {
 
     startTransition(async () => {
       try {
-        const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
-        const payload = mode === 'login' ? { email, password } : { name, email, password };
-
-        const res = await fetch(endpoint, {
+        const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ email, password }),
         });
 
         const data = await res.json();
         if (!res.ok) {
-          setError(data.error || 'Terjadi kesalahan saat memproses permintaan.');
+          setError(data.error || 'Terjadi kesalahan saat memproses masuk.');
           return;
         }
 
@@ -75,7 +70,7 @@ function LoginFormContent() {
               color: 'var(--ink3)',
             }}
           >
-            {mode === 'login' ? 'Masuk' : 'Pendaftaran'}
+            Masuk Sistem
           </span>
           <h1
             style={{
@@ -84,12 +79,10 @@ function LoginFormContent() {
               letterSpacing: '-.01em',
             }}
           >
-            {mode === 'login' ? 'Masuk ke akun Anda' : 'Daftar akun trader'}
+            Masuk ke akun Anda
           </h1>
           <p style={{ margin: '8px 0 0', font: "400 14px 'IBM Plex Sans',sans-serif", color: 'var(--ink2)' }}>
-            {mode === 'login'
-              ? 'Masukkan alamat email dan kata sandi untuk melanjutkan.'
-              : 'Daftar untuk mengakses perkiraan harga dan analisis portofolio.'}
+            Masukkan alamat surel dan kata sandi administrator untuk melanjutkan ke konsol sistem.
           </p>
         </div>
 
@@ -112,39 +105,6 @@ function LoginFormContent() {
 
         {/* Form Input */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {mode === 'register' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label
-                htmlFor="name"
-                style={{
-                  font: "400 12px 'IBM Plex Mono',monospace",
-                  textTransform: 'uppercase',
-                  color: 'var(--ink3)',
-                  letterSpacing: '.06em',
-                }}
-              >
-                Nama Lengkap
-              </label>
-              <input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="cth. Budi Santoso"
-                required
-                style={{
-                  padding: '12px 16px',
-                  borderRadius: 12,
-                  border: '1px solid var(--line)',
-                  background: 'var(--surf2)',
-                  color: 'var(--ink)',
-                  font: "400 14px 'IBM Plex Sans',sans-serif",
-                  outline: 'none',
-                }}
-              />
-            </div>
-          )}
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <label
               htmlFor="email"
@@ -155,7 +115,7 @@ function LoginFormContent() {
                 letterSpacing: '.06em',
               }}
             >
-              Alamat Email
+              Alamat Surel
             </label>
             <input
               id="email"
@@ -223,37 +183,9 @@ function LoginFormContent() {
               transition: 'opacity .2s, transform .2s',
             }}
           >
-            {isPending
-              ? 'Memproses…'
-              : mode === 'login'
-              ? 'Masuk ke Sistem'
-              : 'Daftar Sekarang'}
+            {isPending ? 'Memproses Masuk…' : 'Masuk ke Sistem'}
           </button>
         </form>
-
-        {/* Switch Mode */}
-        <div style={{ marginTop: 24, textAlign: 'center' }}>
-          <button
-            type="button"
-            onClick={() => {
-              setMode(mode === 'login' ? 'register' : 'login');
-              setError(null);
-            }}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--risk)',
-              font: "400 13px 'IBM Plex Sans',sans-serif",
-              cursor: 'pointer',
-              textDecoration: 'none',
-              borderBottom: '1px solid var(--linkline)',
-            }}
-          >
-            {mode === 'login'
-              ? 'Belum punya akun trader? Daftar di sini'
-              : 'Sudah punya akun? Masuk di sini'}
-          </button>
-        </div>
       </div>
     </div>
   );

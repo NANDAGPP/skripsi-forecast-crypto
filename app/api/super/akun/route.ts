@@ -1,8 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { INITIAL_ACCOUNTS, type AdminAccount } from '@/lib/api';
 
-let accountsState: AdminAccount[] = [...INITIAL_ACCOUNTS];
-
 /**
  * GET /api/super/akun
  * ─────────────────────────────────────────────────────────────
@@ -11,7 +9,7 @@ let accountsState: AdminAccount[] = [...INITIAL_ACCOUNTS];
  */
 export async function GET() {
   return NextResponse.json({
-    data: accountsState,
+    data: INITIAL_ACCOUNTS,
   });
 }
 
@@ -39,24 +37,25 @@ export async function POST(request: NextRequest) {
     }
 
     // Periksa duplikasi surel
-    if (accountsState.some((acc) => acc.surel.toLowerCase() === surel.toLowerCase())) {
+    if (INITIAL_ACCOUNTS.some((acc) => acc.surel.toLowerCase() === surel.toLowerCase())) {
       return NextResponse.json(
         { error: 'Surel tersebut sudah terdaftar sebagai akun administrator.' },
         { status: 409 }
       );
     }
 
-    const newId = `adm-${String(accountsState.length + 1).padStart(2, '0')}`;
+    const newId = `adm-${String(INITIAL_ACCOUNTS.length + 1).padStart(2, '0')}`;
     const newAccount: AdminAccount = {
       id: newId,
       nama: nama.trim(),
       surel: surel.trim(),
+      peran: 'ADMINISTRATOR',
       aktif: true,
       dibuat: new Date().toISOString(),
       terakhir_masuk: null,
     };
 
-    accountsState.push(newAccount);
+    INITIAL_ACCOUNTS.push(newAccount);
 
     return NextResponse.json(
       {

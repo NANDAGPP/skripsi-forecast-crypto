@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { hashPassword, verifyPassword, createUser, getUserById, toggleUserStatus, deleteUser } from '@/lib/db/users';
 import { signToken, verifyToken } from '@/lib/auth/jwt';
 import { canAccessSuperAdmin, canAccessAdmin, canAccessUser, getDefaultRedirectForRole } from '@/lib/auth/rbac';
+import { getAktorSaatIni } from '@/lib/auth';
 import { addPair, togglePairStatus, deletePair } from '@/lib/db/pairs';
 import { setConfig, getConfigValue } from '@/lib/db/configs';
 import { recordAuditLog, listAuditLogs } from '@/lib/db/audit';
@@ -81,6 +82,17 @@ describe('Unit & Integration: Authentication & RBAC System', () => {
       expect(canAccessAdmin('SUPER_ADMIN')).toBe(true);
       expect(canAccessUser('SUPER_ADMIN')).toBe(true);
       expect(getDefaultRedirectForRole('SUPER_ADMIN')).toBe('/super-admin');
+    });
+
+    it('TC-AUTH-ASYNC: Memastikan getAktorSaatIni() mengembalikan Promise dan dapat di-await', async () => {
+      const promise = getAktorSaatIni();
+      expect(promise).toBeInstanceOf(Promise);
+
+      const aktor = await promise;
+      expect(aktor).toBeDefined();
+      expect(aktor.id).toBeDefined();
+      expect(aktor.nama).toBeDefined();
+      expect(['ADMINISTRATOR', 'SUPER_ADMINISTRATOR']).toContain(aktor.peran);
     });
   });
 

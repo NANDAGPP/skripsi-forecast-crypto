@@ -4,149 +4,207 @@ import { useState, useEffect, useTransition } from 'react';
 import AdminNavBar from '@/components/AdminNavBar';
 import BackgroundHills from '@/components/BackgroundHills';
 import Reveal from '@/components/Reveal';
-import type { CryptoPair } from '@/lib/db/pairs';
-import type { ModelStatus, SystemJob } from '@/lib/db/models';
-import type { AuditLog } from '@/lib/db/audit';
+import DevModeBanner from '@/components/DevModeBanner';
+import { getAktorSaatIni, type Aktor } from '@/lib/auth';
+import {
+  type BatchStatusResponse,
+  type MonitoredPair,
+  type RetrainResponse,
+  INITIAL_BATCH_STATUS,
+  INITIAL_PAIRS,
+} from '@/lib/api';
 
 const ADMIN_TABS = [
-  { id: 'dashboard', label: 'Admin Dashboard' },
-  { id: 'monitoring', label: 'Monitoring' },
-  { id: 'batch', label: 'Batch Process' },
-  { id: 'models', label: 'Model Management' },
-  { id: 'pairs', label: 'Pair Management' },
-  { id: 'logs', label: 'Logs' },
+  { id: 'batch', label: 'Status Batch (KF-16)' },
+  { id: 'models', label: 'Pelatihan Model (KF-17)' },
+  { id: 'pairs', label: 'Pasangan Aset (KF-18)' },
 ];
 
+function formatDurasi(detik: number): string {
+  const m = Math.floor(detik / 60);
+  const s = detik % 60;
+  if (m === 0) return `${s} detik`;
+  if (s === 0) return `${m} menit`;
+  return `${m} menit ${s} detik`;
+}
+
+function formatWaktuLokal(isoString: string): string {
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString;
+    return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB';
+  } catch {
+    return isoString;
+  }
+}
+
+function formatTanggalLokal(dateString: string): string {
+  try {
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+    return dateString;
+  } catch {
+    return dateString;
+  }
+}
+
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [loading, setLoading] = useState(true);
-  const [statusData, setStatusData] = useState<{
-    summary?: {
-      systemHealth: string;
-      dailyBatch: { status: string; lastRun: string; message: string };
-      apis: {
-        cryptoApi: { provider: string; status: string; latencyMs: number; lastCheck: string };
-        sentimentApi: { provider: string; status: string; latencyMs: number; lastCheck: string };
-      };
-      activePairsCount: number;
-      modelsCount: number;
-      lastDataUpdate: string;
-      serverStats: { platform: string; nodeVersion: string; uptimeSeconds: number; memoryUsageMb: number };
-    };
-    models?: ModelStatus[];
-    jobs?: SystemJob[];
-    logs?: AuditLog[];
-  }>({});
+  const [activeTab, setActiveTab] = useState('batch');
+  const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [lastSynced, setLastSynced] = useState<string | null>(null);
+  const [aktor, setAktor] = useState<Aktor | null>(null);
 
-  const [pairs, setPairs] = useState<CryptoPair[]>([]);
-  const [isPending, startTransition] = useTransition();
-  const [retrainSuccess, setRetrainSuccess] = useState<string | null>(null);
+  // State KF-16 (Status Batch Harian)
+  const [batchData, setBatchData] = useState<BatchStatusResponse>(INITIAL_BATCH_STATUS);
 
-  // Form input pair baru
-  const [newSymbol, setNewSymbol] = useState('');
-  const [newBase, setNewBase] = useState('');
-  const [newQuote, setNewQuote] = useState('USDT');
-  const [pairError, setPairError] = useState<string | null>(null);
+  // State KF-17 (Pemicu Pelatihan Ulang Model)
+  const [isPendingRetrain, startRetrainTransition] = useTransition();
+  const [retrainResult, setRetrainResult] = useState<(RetrainResponse & { waktu: string }) | null>(null);
+  const [retrainError, setRetrainError] = useState<string | null>(null);
 
-  // Ambil data admin
-  const fetchData = async () => {
+  // State KF-18 (Pengelolaan Pasangan Aset)
+  const [pairs, setPairs] = useState<MonitoredPair[]>(INITIAL_PAIRS);
+  const [pairFeedback, setPairFeedback] = useState<string | null>(null);
+  const [testPairInput, setTestPairInput] = useState('');
+  const [testPairResult, setTestPairResult] = useState<{ sukses: boolean; pesan: string } | null>(null);
+  const [isPendingPairTest, startPairTestTransition] = useTransition();
+
+  // Memuat data awal halaman admin secara asinkron
+  const loadAdminData = async () => {
+    setLoading(true);
+    setFetchError(null);
     try {
-      const [resStatus, resPairs] = await Promise.all([
-        fetch('/api/admin/status'),
+      const dataAktor = await getAktorSaatIni();
+      setAktor(dataAktor);
+    } catch {
+      // Abaikan jika verifikasi sesi gagal di mode contoh
+    }
+
+    try {
+      const [resBatch, resPairs] = await Promise.all([
+        fetch('/api/admin/batch/status'),
         fetch('/api/admin/pairs'),
       ]);
-      if (resStatus.ok) {
-        const data = await resStatus.json();
-        setStatusData(data);
+
+      if (!resBatch.ok || !resPairs.ok) {
+        throw new Error('Gagal memuat status batch atau konfigurasi pasangan aset dari server.');
       }
-      if (resPairs.ok) {
-        const p = await resPairs.json();
-        setPairs(p.pairs || []);
+
+      const dBatch = await resBatch.json();
+      setBatchData(dBatch);
+
+      const dPairs = await resPairs.json();
+      if (Array.isArray(dPairs.data)) {
+        setPairs(dPairs.data);
       }
+      setLastSynced(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB');
     } catch (err) {
-      console.error('Fetch admin data error:', err);
+      console.error('Gagal mengambil data operasional admin:', err);
+      setFetchError('Terjadi kendala saat memuat data operasional dari server. Silakan coba kembali.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchData();
+    loadAdminData();
   }, []);
 
-  const handleRetrain = () => {
-    setRetrainSuccess(null);
-    startTransition(async () => {
+  // Handler KF-17: Memicu pelatihan ulang model
+  const handleTriggerRetrain = () => {
+    setRetrainError(null);
+    setRetrainResult(null);
+
+    startRetrainTransition(async () => {
       try {
-        const res = await fetch('/api/admin/retrain', { method: 'POST' });
+        const res = await fetch('/api/admin/model/latih-ulang', { method: 'POST' });
         const data = await res.json();
-        if (res.ok) {
-          setRetrainSuccess(data.message || 'Pelatihan ulang berhasil!');
-          await fetchData();
+        if (res.ok && data.diterima) {
+          setRetrainResult({
+            ...data,
+            waktu: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB',
+          });
+        } else {
+          setRetrainError(data.pesan || data.error || 'Gagal memicu proses pelatihan ulang.');
         }
       } catch {
-        alert('Gagal memicu retraining.');
+        setRetrainError('Terjadi kesalahan jaringan saat menghubungi endpoint pelatihan ulang.');
       }
     });
   };
 
-  const handleAddPair = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPairError(null);
-    if (!newSymbol || !newBase || !newQuote) {
-      setPairError('Semua isian pair harus diisi.');
-      return;
-    }
-
+  // Handler KF-18: Mengubah status pemantauan pair (Nonaktifkan / Aktifkan Kembali)
+  const handleTogglePairStatus = async (pairSymbol: string, currentStatus: boolean) => {
+    setPairFeedback(null);
     try {
-      const res = await fetch('/api/admin/pairs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol: newSymbol.toUpperCase(),
-          base_asset: newBase.toUpperCase(),
-          quote_asset: newQuote.toUpperCase(),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setPairError(data.error || 'Gagal menambahkan pair.');
-        return;
-      }
-      setNewSymbol('');
-      setNewBase('');
-      fetchData();
-    } catch {
-      setPairError('Gagal terhubung ke server.');
-    }
-  };
-
-  const handleTogglePair = async (id: string) => {
-    try {
-      const res = await fetch('/api/admin/pairs', {
+      const targetClean = pairSymbol.toUpperCase().replace(/[^A-Z]/g, '');
+      const res = await fetch(`/api/admin/pairs/${targetClean}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ dipantau: !currentStatus }),
       });
-      if (res.ok) fetchData();
+
+      const data = await res.json();
+      if (res.ok && data.sukses) {
+        setPairs((prev) =>
+          prev.map((p) =>
+            p.pair.toUpperCase().replace(/[^A-Z]/g, '') === targetClean
+              ? { ...p, dipantau: !currentStatus }
+              : p
+          )
+        );
+        setPairFeedback(data.pesan || `Status ${pairSymbol} berhasil diperbarui.`);
+      } else {
+        alert(data.error || 'Gagal memperbarui status pasangan aset.');
+      }
     } catch {
-      alert('Gagal memperbarui status pair.');
+      alert('Terjadi kesalahan koneksi saat memperbarui pasangan aset.');
     }
   };
 
-  const handleDeletePair = async (id: string, symbol: string) => {
-    if (!confirm(`Hapus pasangan ${symbol} dari sistem?`)) return;
-    try {
-      const res = await fetch(`/api/admin/pairs?id=${id}`, { method: 'DELETE' });
-      if (res.ok) fetchData();
-    } catch {
-      alert('Gagal menghapus pair.');
-    }
+  // Handler KF-18: Uji penambahan pasangan aset di luar batasan penelitian
+  const handleTestAddPair = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testPairInput.trim()) return;
+
+    setTestPairResult(null);
+    startPairTestTransition(async () => {
+      try {
+        const res = await fetch('/api/admin/pairs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pair: testPairInput.trim() }),
+        });
+
+        const data = await res.json();
+        setTestPairResult({
+          sukses: data.sukses ?? false,
+          pesan: data.pesan || 'Permintaan diproses oleh server.',
+        });
+      } catch {
+        setTestPairResult({
+          sukses: false,
+          pesan: 'Gagal terhubung ke endpoint pengujian penambahan pair.',
+        });
+      }
+    });
   };
+
+  // Kalkulasi ringkasan batch
+  const riwayat14Hari = [batchData.terakhir, ...(batchData.riwayat || [])];
+  const totalHari = riwayat14Hari.length;
+  const hariBerhasil = riwayat14Hari.filter((b) => b.status === 'berhasil').length;
+  const hariGagal = riwayat14Hari.filter((b) => b.status === 'gagal').length;
+  const rasioBerhasil = totalHari > 0 ? Math.round((hariBerhasil / totalHari) * 100) : 0;
+  const pairsAktifCount = pairs.filter((p) => p.dipantau).length;
 
   return (
     <>
+      <DevModeBanner />
       <BackgroundHills />
       <div style={{ position: 'relative', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
         <AdminNavBar
@@ -154,488 +212,541 @@ export default function AdminPage() {
           activeTab={activeTab}
           onSelectTab={setActiveTab}
           tabs={ADMIN_TABS}
-          userName="Administrator"
+          userName={aktor?.nama || 'Operator Harian'}
         />
 
         <main style={{ flex: 1, maxWidth: 1320, width: '100%', margin: '0 auto', padding: '34px 24px 80px' }}>
+          {/* Bar Status Sinkronisasi */}
+          {lastSynced && !loading && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 12px', borderRadius: 999, background: 'var(--card)', border: '1px solid var(--line2)', font: "400 12px 'IBM Plex Mono',monospace", color: 'var(--ink3)' }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: fetchError ? 'var(--down)' : 'var(--lime)', display: 'inline-block' }} />
+                Status Konsol: {fetchError ? 'Koneksi Terganggu' : 'Terhubung'} • Terakhir disinkronkan: {lastSynced}
+              </div>
+              <button
+                onClick={loadAdminData}
+                style={{
+                  background: 'none',
+                  border: '1px solid var(--line)',
+                  borderRadius: 8,
+                  padding: '4px 10px',
+                  font: "500 11.5px 'IBM Plex Sans',sans-serif",
+                  color: 'var(--ink2)',
+                  cursor: 'pointer',
+                }}
+              >
+                ↻ Muat Ulang Data
+              </button>
+            </div>
+          )}
+
+          {/* 1. Keadaan: Gagal Pengambilan Data (Error State) */}
+          {fetchError && (
+            <div
+              style={{
+                marginBottom: 24,
+                padding: '18px 22px',
+                borderRadius: 16,
+                background: 'color-mix(in srgb, var(--down) 10%, transparent)',
+                border: '1px solid var(--down)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 14,
+              }}
+            >
+              <div>
+                <div style={{ font: "600 14px 'IBM Plex Sans',sans-serif", color: 'var(--down)', marginBottom: 4 }}>
+                  Kendala Pengambilan Data Operasional
+                </div>
+                <div style={{ font: "400 13px 'IBM Plex Sans',sans-serif", color: 'var(--ink2)' }}>
+                  {fetchError}
+                </div>
+              </div>
+              <button
+                onClick={loadAdminData}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: 'var(--down)',
+                  color: '#fff',
+                  font: "500 12.5px 'IBM Plex Sans',sans-serif",
+                  cursor: 'pointer',
+                }}
+              >
+                Coba Muat Ulang Data
+              </button>
+            </div>
+          )}
+
+          {/* 2. Keadaan: Data Tidak Mutakhir (Stale State Warning) */}
+          {!loading && batchData.terakhir.status === 'gagal' && (
+            <div
+              style={{
+                marginBottom: 24,
+                padding: '16px 20px',
+                borderRadius: 14,
+                background: 'color-mix(in srgb, #f59e0b 12%, transparent)',
+                border: '1px solid #f59e0b',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+              }}
+            >
+              <span style={{ fontSize: 18, lineHeight: 1 }}>⚠️</span>
+              <div>
+                <strong style={{ font: "500 13.5px 'IBM Plex Sans',sans-serif", color: 'var(--ink)' }}>
+                  Peringatan: Data Operasional Belum Termutakhirkan (Stale Data)
+                </strong>
+                <p style={{ margin: '4px 0 0', font: "400 12.5px/1.55 'IBM Plex Sans',sans-serif", color: 'var(--ink2)' }}>
+                  Eksekusi batch harian terakhir tanggal {formatTanggalLokal(batchData.terakhir.tanggal)} mengalami kegagalan ({batchData.terakhir.catatan}). Metrik peramalan dan kalkulasi risiko pada dasbor publik tetap menyajikan hasil eksekusi batch sukses sebelumnya hingga jadwal eksekusi berikutnya.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* 3. Keadaan: Sedang Memuat (Loading State) */}
           {loading ? (
-            <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink3)' }}>
-              Memuat data administrasi…
+            <div style={{ padding: '80px 20px', textAlign: 'center', background: 'var(--card)', borderRadius: 20, border: '1px solid var(--line2)' }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  margin: '0 auto 16px',
+                  border: '3px solid var(--line)',
+                  borderTopColor: 'var(--ink)',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite',
+                }}
+              />
+              <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+              <div style={{ font: "500 15px 'IBM Plex Sans',sans-serif", color: 'var(--ink)', marginBottom: 6 }}>
+                Memuat Data Konsol Operasional Administrator…
+              </div>
+              <div style={{ font: "400 13px 'IBM Plex Sans',sans-serif", color: 'var(--ink3)' }}>
+                Mengambil status eksekusi batch dan konfigurasi pemantauan pasangan aset kripto.
+              </div>
             </div>
           ) : (
             <>
-              {/* 1. ADMIN DASHBOARD */}
-              {activeTab === 'dashboard' && (
+              {/* ═══════════════════════════════════════════════════════════ */}
+              {/* 1. STATUS BATCH HARIAN (KF-16)                             */}
+              {/* ═══════════════════════════════════════════════════════════ */}
+              {activeTab === 'batch' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
                   <Reveal order={1}>
                     <div>
                       <span style={{ font: "400 12px 'IBM Plex Mono',monospace", letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--ink3)' }}>
-                        Pusat Kendali Operasional
+                        FITUR OPERASIONAL KF-16
                       </span>
-                      <h1 style={{ margin: '8px 0 0', font: "400 42px/1.1 'PP Editorial New','Instrument Serif',serif" }}>
-                        Ringkasan Status Sistem
-                      </h1>
-                      <p style={{ margin: '8px 0 0', font: "400 14px 'IBM Plex Sans',sans-serif", color: 'var(--ink2)' }}>
-                        Status harian pemodelan multi-model ensemble, ketersediaan API bursa, dan proses batch sinkronisasi data.
+                      <h2 style={{ margin: '8px 0 0', font: "400 32px 'PP Editorial New','Instrument Serif',serif" }}>
+                        Status Proses Batch Harian
+                      </h2>
+                      <p style={{ margin: '8px 0 0', font: "400 14px/1.6 'IBM Plex Sans',sans-serif", color: 'var(--ink2)', maxWidth: 820 }}>
+                        Proses pengambilan data candlestick dan inferensi model berjalan terjadwal secara mandiri setiap pukul 00:05 WIB tanpa pengawasan langsung. Riwayat ini mencatat performa dan catatan kendala operasional 14 hari terakhir.
                       </p>
                     </div>
                   </Reveal>
 
-                  {/* 4 Kartu Metrik Utama */}
-                  <Reveal order={2}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
-                      {/* Status Sistem */}
-                      <div style={{ background: 'var(--card)', borderRadius: 22, padding: 24, boxShadow: 'var(--shadow)', border: '1px solid var(--line2)' }}>
-                        <span style={{ font: "400 11.5px 'IBM Plex Mono',monospace", color: 'var(--ink3)', textTransform: 'uppercase' }}>
-                          Status Kesehatan Sistem
-                        </span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
-                          <span style={{ width: 12, height: 12, borderRadius: '50%', background: 'var(--up)' }} />
-                          <span style={{ font: "500 24px 'IBM Plex Sans',sans-serif", color: 'var(--ink)' }}>
-                            {statusData.summary?.systemHealth || 'HEALTHY'}
-                          </span>
-                        </div>
-                        <p style={{ margin: '8px 0 0', font: "400 12.5px 'IBM Plex Sans',sans-serif", color: 'var(--ink3)' }}>
-                          Seluruh sub-sistem beroperasi normal tanpa kendala.
-                        </p>
-                      </div>
-
-                      {/* Status Batch Harian */}
-                      <div style={{ background: 'var(--card)', borderRadius: 22, padding: 24, boxShadow: 'var(--shadow)', border: '1px solid var(--line2)' }}>
-                        <span style={{ font: "400 11.5px 'IBM Plex Mono',monospace", color: 'var(--ink3)', textTransform: 'uppercase' }}>
-                          Status Proses Batch Harian
-                        </span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
-                          <span style={{ padding: '3px 10px', borderRadius: 999, background: 'var(--lime)', color: 'var(--onlime)', font: "500 12px 'IBM Plex Mono',monospace" }}>
-                            {statusData.summary?.dailyBatch.status}
-                          </span>
-                        </div>
-                        <p style={{ margin: '8px 0 0', font: "400 12px 'IBM Plex Sans',sans-serif", color: 'var(--ink2)' }}>
-                          {statusData.summary?.dailyBatch.message}
-                        </p>
-                      </div>
-
-                      {/* Status API Crypto */}
-                      <div style={{ background: 'var(--card)', borderRadius: 22, padding: 24, boxShadow: 'var(--shadow)', border: '1px solid var(--line2)' }}>
-                        <span style={{ font: "400 11.5px 'IBM Plex Mono',monospace", color: 'var(--ink3)', textTransform: 'uppercase' }}>
-                          Status API Cryptocurrency
-                        </span>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
-                          <span style={{ font: "500 15px 'IBM Plex Sans',sans-serif", color: 'var(--up)' }}>
-                            {statusData.summary?.apis.cryptoApi.status}
-                          </span>
-                          <span style={{ font: "400 12px 'IBM Plex Mono',monospace", color: 'var(--ink3)' }}>
-                            {statusData.summary?.apis.cryptoApi.latencyMs} ms
-                          </span>
-                        </div>
-                        <p style={{ margin: '8px 0 0', font: "400 12px 'IBM Plex Sans',sans-serif", color: 'var(--ink3)' }}>
-                          {statusData.summary?.apis.cryptoApi.provider}
-                        </p>
-                      </div>
-
-                      {/* Status API Sentimen */}
-                      <div style={{ background: 'var(--card)', borderRadius: 22, padding: 24, boxShadow: 'var(--shadow)', border: '1px solid var(--line2)' }}>
-                        <span style={{ font: "400 11.5px 'IBM Plex Mono',monospace", color: 'var(--ink3)', textTransform: 'uppercase' }}>
-                          Status API Sentiment Index
-                        </span>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
-                          <span style={{ font: "500 15px 'IBM Plex Sans',sans-serif", color: 'var(--up)' }}>
-                            {statusData.summary?.apis.sentimentApi.status}
-                          </span>
-                          <span style={{ font: "400 12px 'IBM Plex Mono',monospace", color: 'var(--ink3)' }}>
-                            {statusData.summary?.apis.sentimentApi.latencyMs} ms
-                          </span>
-                        </div>
-                        <p style={{ margin: '8px 0 0', font: "400 12px 'IBM Plex Sans',sans-serif", color: 'var(--ink3)' }}>
-                          {statusData.summary?.apis.sentimentApi.provider}
-                        </p>
-                      </div>
-                    </div>
-                  </Reveal>
-
-                  {/* Informasi Update Terakhir & Quick Retraining */}
-                  <Reveal order={3}>
-                    <div style={{ background: 'var(--card)', borderRadius: 24, padding: 28, boxShadow: 'var(--shadow)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
-                      <div>
-                        <span style={{ font: "400 11px 'IBM Plex Mono',monospace", textTransform: 'uppercase', color: 'var(--ink3)', letterSpacing: '.08em' }}>
-                          Sinkronisasi & Retraining Model
-                        </span>
-                        <h3 style={{ margin: '6px 0 0', font: "400 22px 'PP Editorial New',serif" }}>
-                          Waktu Pembaruan Data Terakhir: {new Date(statusData.summary?.lastDataUpdate || '').toLocaleString('id-ID')}
-                        </h3>
-                        <p style={{ margin: '4px 0 0', font: "400 13px 'IBM Plex Sans',sans-serif", color: 'var(--ink2)' }}>
-                          Model ensemble saat ini aktif untuk {statusData.summary?.activePairsCount} pair kripto acuan.
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={handleRetrain}
-                        disabled={isPending}
+                  {/* Kartu Status Hari Terakhir */}
+                  <div style={{ background: 'var(--card)', borderRadius: 20, padding: 24, border: '1px solid var(--line2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 18 }}>
+                      <span style={{ font: "500 16px 'IBM Plex Sans',sans-serif" }}>
+                        Eksekusi Batch Terakhir ({formatTanggalLokal(batchData.terakhir.tanggal)})
+                      </span>
+                      <span
                         style={{
-                          padding: '12px 24px',
-                          borderRadius: 12,
-                          border: 'none',
-                          background: isPending ? 'var(--surf2)' : 'var(--risk)',
-                          color: isPending ? 'var(--ink3)' : '#ffffff',
-                          font: "500 13.5px 'IBM Plex Sans',sans-serif",
-                          cursor: isPending ? 'wait' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          boxShadow: '0 2px 10px rgba(47, 93, 138, .2)',
+                          padding: '4px 12px',
+                          borderRadius: 999,
+                          font: "500 12px 'IBM Plex Mono',monospace",
+                          background: batchData.terakhir.status === 'berhasil' ? 'var(--lime)' : 'var(--down)',
+                          color: batchData.terakhir.status === 'berhasil' ? 'var(--onlime)' : '#fff',
+                          textTransform: 'uppercase',
                         }}
                       >
-                        {isPending ? 'Memproses pelatihan ulang…' : 'Jalankan Retraining Model'}
-                      </button>
+                        {batchData.terakhir.status}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+                      <div style={{ padding: '14px 16px', borderRadius: 14, background: 'var(--surf2)' }}>
+                        <div style={{ font: "400 11px 'IBM Plex Mono',monospace", color: 'var(--ink3)', textTransform: 'uppercase' }}>Waktu Mulai</div>
+                        <div style={{ font: "500 15px 'IBM Plex Sans',sans-serif", marginTop: 4 }}>{formatWaktuLokal(batchData.terakhir.mulai)}</div>
+                      </div>
+                      <div style={{ padding: '14px 16px', borderRadius: 14, background: 'var(--surf2)' }}>
+                        <div style={{ font: "400 11px 'IBM Plex Mono',monospace", color: 'var(--ink3)', textTransform: 'uppercase' }}>Waktu Selesai</div>
+                        <div style={{ font: "500 15px 'IBM Plex Sans',sans-serif", marginTop: 4 }}>{batchData.terakhir.selesai ? formatWaktuLokal(batchData.terakhir.selesai) : '-'}</div>
+                      </div>
+                      <div style={{ padding: '14px 16px', borderRadius: 14, background: 'var(--surf2)' }}>
+                        <div style={{ font: "400 11px 'IBM Plex Mono',monospace", color: 'var(--ink3)', textTransform: 'uppercase' }}>Lama Proses</div>
+                        <div style={{ font: "500 15px 'IBM Plex Sans',sans-serif", marginTop: 4 }}>{formatDurasi(batchData.terakhir.lama_detik)}</div>
+                      </div>
+                      <div style={{ padding: '14px 16px', borderRadius: 14, background: 'var(--surf2)' }}>
+                        <div style={{ font: "400 11px 'IBM Plex Mono',monospace", color: 'var(--ink3)', textTransform: 'uppercase' }}>Rasio Keberhasilan (14 Hari)</div>
+                        <div style={{ font: "500 15px 'IBM Plex Sans',sans-serif", marginTop: 4 }}>{hariBerhasil} dari {totalHari} hari ({rasioBerhasil}%)</div>
+                      </div>
+                    </div>
+
+                    {batchData.terakhir.catatan && (
+                      <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 12, background: 'color-mix(in srgb, var(--down) 12%, transparent)', color: 'var(--down)', font: "400 13px 'IBM Plex Sans',sans-serif" }}>
+                        <strong>Catatan Kendala:</strong> {batchData.terakhir.catatan}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tabel Riwayat 14 Hari */}
+                  <div style={{ background: 'var(--card)', borderRadius: 20, padding: 24, border: '1px solid var(--line2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                      <h3 style={{ margin: 0, font: "500 17px 'IBM Plex Sans',sans-serif" }}>
+                        Riwayat Eksekusi 14 Hari Terakhir
+                      </h3>
+                      <span style={{ font: "400 12px 'IBM Plex Mono',monospace", color: 'var(--ink3)' }}>
+                        {hariGagal} Hari Gagal • {hariBerhasil} Hari Berhasil
+                      </span>
+                    </div>
+
+                    <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                      <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse', font: "400 13.5px 'IBM Plex Sans',sans-serif" }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid var(--line)', textAlign: 'left', font: "400 11px 'IBM Plex Mono',monospace", color: 'var(--ink3)', textTransform: 'uppercase' }}>
+                            <th style={{ padding: '12px 14px' }}>Tanggal</th>
+                            <th style={{ padding: '12px 14px' }}>Waktu Mulai</th>
+                            <th style={{ padding: '12px 14px' }}>Lama Proses</th>
+                            <th style={{ padding: '12px 14px' }}>Status</th>
+                            <th style={{ padding: '12px 14px' }}>Keterangan / Diagnostik</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {riwayat14Hari.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} style={{ padding: 36, textAlign: 'center', color: 'var(--ink3)' }}>
+                                Belum ada riwayat eksekusi batch yang tersimpan di sistem.
+                              </td>
+                            </tr>
+                          ) : (
+                            riwayat14Hari.map((item, idx) => (
+                              <tr key={`${item.tanggal}-${idx}`} style={{ borderBottom: '1px solid var(--line2)' }}>
+                                <td style={{ padding: '14px', font: "500 13.5px 'IBM Plex Mono',monospace" }}>
+                                  {item.tanggal}
+                                </td>
+                                <td style={{ padding: '14px', color: 'var(--ink2)', fontSize: 13 }}>
+                                  {formatWaktuLokal(item.mulai)}
+                                </td>
+                                <td style={{ padding: '14px', font: "400 13px 'IBM Plex Mono',monospace" }}>
+                                  {formatDurasi(item.lama_detik)}
+                                </td>
+                                <td style={{ padding: '14px' }}>
+                                  <span
+                                    style={{
+                                      padding: '3px 8px',
+                                      borderRadius: 999,
+                                      fontSize: 11,
+                                      fontFamily: "'IBM Plex Mono',monospace",
+                                      fontWeight: 500,
+                                      background: item.status === 'berhasil' ? 'var(--lime)' : 'var(--down)',
+                                      color: item.status === 'berhasil' ? 'var(--onlime)' : '#fff',
+                                      textTransform: 'uppercase',
+                                    }}
+                                  >
+                                    {item.status}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '14px', color: item.catatan ? 'var(--down)' : 'var(--ink3)', fontSize: 13 }}>
+                                  {item.catatan || 'Inferensi dan pembaharuan metrik risiko berhasil diselesaikan.'}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div style={{ marginTop: 10, font: "400 11px 'IBM Plex Sans',sans-serif", color: 'var(--ink3)' }}>
+                      * Geser tabel secara horizontal untuk melihat rincian kolom pada layar ponsel.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ═══════════════════════════════════════════════════════════ */}
+              {/* 3. PELATIHAN ULANG MODEL (KF-17)                           */}
+              {/* ═══════════════════════════════════════════════════════════ */}
+              {activeTab === 'models' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
+                  <Reveal order={1}>
+                    <div>
+                      <span style={{ font: "400 12px 'IBM Plex Mono',monospace", letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--ink3)' }}>
+                        FITUR OPERASIONAL KF-17
+                      </span>
+                      <h2 style={{ margin: '8px 0 0', font: "400 32px 'PP Editorial New','Instrument Serif',serif" }}>
+                        Pemicu Pelatihan Ulang Model
+                      </h2>
+                      <p style={{ margin: '8px 0 0', font: "400 14px/1.6 'IBM Plex Sans',sans-serif", color: 'var(--ink2)', maxWidth: 820 }}>
+                        Sesuai proposal skripsi, sistem tidak melakukan pelatihan ulang otomatis. Pemicu manual ini adalah satu-satunya mekanisme pembaruan bobot model LSTM, GRU, dan XGBoost menggunakan jendela data historis terbaru.
+                      </p>
                     </div>
                   </Reveal>
-                  {retrainSuccess && (
-                    <div style={{ padding: '12px 18px', borderRadius: 14, background: 'color-mix(in srgb, var(--up) 15%, transparent)', color: 'var(--up)', font: "500 13.5px 'IBM Plex Sans',sans-serif", border: '1px solid color-mix(in srgb, var(--up) 30%, transparent)' }}>
-                      {retrainSuccess}
+
+                  {/* Panel Kontrol & Aksi Pemicu */}
+                  <div style={{ background: 'var(--card)', borderRadius: 20, padding: 26, border: '1px solid var(--line2)' }}>
+                    <div style={{ maxWidth: 720 }}>
+                      <h3 style={{ margin: 0, font: "500 18px 'IBM Plex Sans',sans-serif" }}>
+                        Mekanisme Pembaruan Bobot Ensemble
+                      </h3>
+                      <p style={{ margin: '10px 0 20px', font: "400 14px/1.65 'IBM Plex Sans',sans-serif", color: 'var(--ink2)' }}>
+                        Pelatihan ulang akan mengambil rangkaian data lilin harga terbaru untuk ketiga pasangan aset acuan, mengalkulasi kesalahan MAPE 30 hari terakhir, serta memperbarui matriks bobot pembobotan inversi varians.
+                      </p>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                        <button
+                          onClick={handleTriggerRetrain}
+                          disabled={isPendingRetrain}
+                          style={{
+                            padding: '12px 24px',
+                            borderRadius: 12,
+                            border: 'none',
+                            background: isPendingRetrain ? 'var(--ink3)' : 'var(--ink)',
+                            color: '#fff',
+                            font: "500 14px 'IBM Plex Sans',sans-serif",
+                            cursor: isPendingRetrain ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                          }}
+                        >
+                          {isPendingRetrain ? 'Memproses Pemicuan…' : 'Latih Ulang Model Sekarang'}
+                        </button>
+
+                        <span style={{ font: "400 12.5px 'IBM Plex Mono',monospace", color: 'var(--ink3)' }}>
+                          Proses berjalan asinkron di latar belakang
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Umpan Balik Berhasil */}
+                    {retrainResult && (
+                      <div
+                        style={{
+                          marginTop: 24,
+                          padding: '18px 20px',
+                          borderRadius: 14,
+                          background: 'color-mix(in srgb, var(--lime) 15%, transparent)',
+                          border: '1px solid var(--lime)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                          <span style={{ padding: '3px 8px', borderRadius: 999, background: 'var(--lime)', color: 'var(--onlime)', font: "500 11px 'IBM Plex Mono',monospace", textTransform: 'uppercase' }}>
+                            Proses Diterima
+                          </span>
+                          <span style={{ font: "500 13px 'IBM Plex Mono',monospace", color: 'var(--ink)' }}>
+                            ID Proses: {retrainResult.id_proses}
+                          </span>
+                          <span style={{ font: "400 12px 'IBM Plex Mono',monospace", color: 'var(--ink3)' }}>
+                            • {retrainResult.waktu}
+                          </span>
+                        </div>
+                        <p style={{ margin: 0, font: "400 13.5px/1.5 'IBM Plex Sans',sans-serif", color: 'var(--ink)' }}>
+                          {retrainResult.pesan}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Umpan Balik Galat */}
+                    {retrainError && (
+                      <div
+                        style={{
+                          marginTop: 24,
+                          padding: '16px 20px',
+                          borderRadius: 14,
+                          background: 'color-mix(in srgb, var(--down) 12%, transparent)',
+                          border: '1px solid var(--down)',
+                          color: 'var(--down)',
+                          font: "400 13.5px 'IBM Plex Sans',sans-serif",
+                        }}
+                      >
+                        {retrainError}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ═══════════════════════════════════════════════════════════ */}
+              {/* 4. PASANGAN ASET KRIPTO (KF-18)                            */}
+              {/* ═══════════════════════════════════════════════════════════ */}
+              {activeTab === 'pairs' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
+                  <Reveal order={1}>
+                    <div>
+                      <span style={{ font: "400 12px 'IBM Plex Mono',monospace", letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--ink3)' }}>
+                        FITUR OPERASIONAL KF-18
+                      </span>
+                      <h2 style={{ margin: '8px 0 0', font: "400 32px 'PP Editorial New','Instrument Serif',serif" }}>
+                        Pengelolaan Pasangan Aset Kripto
+                      </h2>
+                      <p style={{ margin: '8px 0 0', font: "400 14px/1.6 'IBM Plex Sans',sans-serif", color: 'var(--ink2)', maxWidth: 820 }}>
+                        Ruang lingkup penelitian dibatasi secara ketat pada tiga pasangan aset acuan: BTC/USDT, ETH/USDT, dan BNB/USDT. Status pemantauan dapat diubah (nonaktifkan/aktifkan kembali) tanpa pernah menghapus data historisnya.
+                      </p>
+                    </div>
+                  </Reveal>
+
+                  {/* Feedback Sukses Perubahan Status */}
+                  {pairFeedback && (
+                    <div style={{ padding: '14px 18px', borderRadius: 14, background: 'var(--surf2)', border: '1px solid var(--line)', color: 'var(--ink)', font: "400 13.5px 'IBM Plex Sans',sans-serif" }}>
+                      ✓ {pairFeedback}
                     </div>
                   )}
-                </div>
-              )}
 
-              {/* 2. MONITORING */}
-              {activeTab === 'monitoring' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                  <Reveal order={1}>
-                    <h2 style={{ margin: 0, font: "400 32px 'PP Editorial New',serif" }}>Monitoring Infrastruktur & Jaringan</h2>
-                    <p style={{ margin: '6px 0 0', font: "400 14px 'IBM Plex Sans',sans-serif", color: 'var(--ink2)' }}>
-                      Pemantauan langsung performa server, penggunaan memori runtime Node.js, dan latensi koneksi API bursa.
-                    </p>
-                  </Reveal>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
-                    <div style={{ background: 'var(--card)', borderRadius: 22, padding: 24, border: '1px solid var(--line2)' }}>
-                      <h4 style={{ margin: 0, font: "500 15px 'IBM Plex Sans',sans-serif" }}>Server Environment</h4>
-                      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10, font: "400 13px 'IBM Plex Mono',monospace" }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--ink3)' }}>Platform:</span>
-                          <span>{statusData.summary?.serverStats.platform}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--ink3)' }}>Node.js Version:</span>
-                          <span>{statusData.summary?.serverStats.nodeVersion}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--ink3)' }}>Memory (Heap Used):</span>
-                          <span>{statusData.summary?.serverStats.memoryUsageMb} MB</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--ink3)' }}>Uptime Server:</span>
-                          <span>{statusData.summary?.serverStats.uptimeSeconds} detik</span>
-                        </div>
-                      </div>
+                  {/* Tabel 3 Pasangan Aset Utama */}
+                  <div style={{ background: 'var(--card)', borderRadius: 20, padding: 24, border: '1px solid var(--line2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                      <h3 style={{ margin: 0, font: "500 17px 'IBM Plex Sans',sans-serif" }}>
+                        Daftar Pasangan Aset yang Dipantau
+                      </h3>
+                      <span style={{ font: "400 12px 'IBM Plex Mono',monospace", color: 'var(--ink3)' }}>
+                        Tidak ada tombol hapus • Data historis permanen
+                      </span>
                     </div>
 
-                    <div style={{ background: 'var(--card)', borderRadius: 22, padding: 24, border: '1px solid var(--line2)' }}>
-                      <h4 style={{ margin: 0, font: "500 15px 'IBM Plex Sans',sans-serif" }}>Database Engine</h4>
-                      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10, font: "400 13px 'IBM Plex Mono',monospace" }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--ink3)' }}>Engine:</span>
-                          <span>SQLite 3 (Built-in Node 24)</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--ink3)' }}>Storage Path:</span>
-                          <span>data/app.db</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--ink3)' }}>Foreign Keys:</span>
-                          <span style={{ color: 'var(--up)' }}>ENABLED</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--ink3)' }}>Integrity Check:</span>
-                          <span style={{ color: 'var(--up)' }}>PASSED (OK)</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 3. BATCH PROCESS */}
-              {activeTab === 'batch' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                  <Reveal order={1}>
-                    <h2 style={{ margin: 0, font: "400 32px 'PP Editorial New',serif" }}>Status Proses Batch Harian</h2>
-                    <p style={{ margin: '6px 0 0', font: "400 14px 'IBM Plex Sans',sans-serif", color: 'var(--ink2)' }}>
-                      Log rekam jejak pekerjaan terjadwal harian untuk pembaruan harga, rekalkulasi bobot 30 hari, dan penilaian risiko.
-                    </p>
-                  </Reveal>
-
-                  <div style={{ background: 'var(--card)', borderRadius: 22, padding: 24, boxShadow: 'var(--shadow)' }}>
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', font: "400 13px 'IBM Plex Sans',sans-serif" }}>
+                    <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                      <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse', font: "400 13.5px 'IBM Plex Sans',sans-serif" }}>
                         <thead>
                           <tr style={{ borderBottom: '1px solid var(--line)', textAlign: 'left', font: "400 11px 'IBM Plex Mono',monospace", color: 'var(--ink3)', textTransform: 'uppercase' }}>
-                            <th style={{ padding: '10px 12px' }}>Nama Job</th>
-                            <th style={{ padding: '10px 12px' }}>Status</th>
-                            <th style={{ padding: '10px 12px' }}>Dipicu Oleh</th>
-                            <th style={{ padding: '10px 12px' }}>Waktu Mulai</th>
-                            <th style={{ padding: '10px 12px' }}>Keterangan / Output</th>
+                            <th style={{ padding: '12px 14px' }}>Pasangan Aset</th>
+                            <th style={{ padding: '12px 14px' }}>Nama Aset</th>
+                            <th style={{ padding: '12px 14px' }}>Data Mulai</th>
+                            <th style={{ padding: '12px 14px' }}>Data Terakhir</th>
+                            <th style={{ padding: '12px 14px' }}>Status Pemantauan</th>
+                            <th style={{ padding: '12px 14px', textAlign: 'right' }}>Aksi Status</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {statusData.jobs?.map((job) => (
-                            <tr key={job.id} style={{ borderBottom: '1px solid var(--line2)' }}>
-                              <td style={{ padding: '12px', font: "500 13px 'IBM Plex Mono',monospace" }}>{job.job_name}</td>
-                              <td style={{ padding: '12px' }}>
-                                <span style={{ padding: '3px 8px', borderRadius: 999, fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", background: job.status === 'COMPLETED' ? 'var(--lime)' : 'var(--surf2)', color: job.status === 'COMPLETED' ? 'var(--onlime)' : 'var(--ink)' }}>
-                                  {job.status}
-                                </span>
+                          {pairs.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} style={{ padding: 36, textAlign: 'center', color: 'var(--ink3)' }}>
+                                Belum ada pasangan aset kripto yang terdaftar dalam sistem.
                               </td>
-                              <td style={{ padding: '12px', color: 'var(--ink2)' }}>{job.triggered_by}</td>
-                              <td style={{ padding: '12px', color: 'var(--ink3)', fontSize: 12 }}>{new Date(job.started_at).toLocaleString('id-ID')}</td>
-                              <td style={{ padding: '12px', color: 'var(--ink2)', maxWidth: 400 }}>{job.message}</td>
                             </tr>
-                          ))}
+                          ) : (
+                            pairs.map((p) => (
+                              <tr key={p.pair} style={{ borderBottom: '1px solid var(--line2)' }}>
+                                <td style={{ padding: '14px', font: "500 14px 'IBM Plex Mono',monospace" }}>
+                                  {p.pair}
+                                </td>
+                                <td style={{ padding: '14px', color: 'var(--ink)' }}>
+                                  {p.nama}
+                                </td>
+                                <td style={{ padding: '14px', font: "400 13px 'IBM Plex Mono',monospace", color: 'var(--ink2)' }}>
+                                  {p.data_mulai}
+                                </td>
+                                <td style={{ padding: '14px', font: "400 13px 'IBM Plex Mono',monospace", color: 'var(--ink2)' }}>
+                                  {p.data_terakhir}
+                                </td>
+                                <td style={{ padding: '14px' }}>
+                                  <span
+                                    style={{
+                                      padding: '3px 8px',
+                                      borderRadius: 999,
+                                      fontSize: 11,
+                                      fontFamily: "'IBM Plex Mono',monospace",
+                                      fontWeight: 500,
+                                      background: p.dipantau ? 'var(--lime)' : 'var(--surf2)',
+                                      color: p.dipantau ? 'var(--onlime)' : 'var(--ink3)',
+                                      border: p.dipantau ? 'none' : '1px solid var(--line)',
+                                    }}
+                                  >
+                                    {p.dipantau ? 'DIPANTAU' : 'NONAKTIF'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '14px', textAlign: 'right' }}>
+                                  <button
+                                    onClick={() => handleTogglePairStatus(p.pair, p.dipantau)}
+                                    style={{
+                                      padding: '6px 14px',
+                                      borderRadius: 8,
+                                      border: '1px solid var(--line)',
+                                      background: p.dipantau ? 'var(--card)' : 'var(--lime)',
+                                      color: p.dipantau ? 'var(--down)' : 'var(--onlime)',
+                                      font: "500 12px 'IBM Plex Sans',sans-serif",
+                                      cursor: 'pointer',
+                                      transition: 'background .2s',
+                                    }}
+                                  >
+                                    {p.dipantau ? 'Nonaktifkan' : 'Aktifkan Kembali'}
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
                         </tbody>
                       </table>
                     </div>
+                    <div style={{ marginTop: 10, font: "400 11px 'IBM Plex Sans',sans-serif", color: 'var(--ink3)' }}>
+                      * Geser tabel secara horizontal untuk melihat seluruh kolom pada layar ponsel.
+                    </div>
                   </div>
-                </div>
-              )}
 
-              {/* 4. MODEL MANAGEMENT */}
-              {activeTab === 'models' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                  <Reveal order={1}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-                      <div>
-                        <h2 style={{ margin: 0, font: "400 32px 'PP Editorial New',serif" }}>Status Pelatihan Model</h2>
-                        <p style={{ margin: '6px 0 0', font: "400 14px 'IBM Plex Sans',sans-serif", color: 'var(--ink2)' }}>
-                          Kelola performa masing-masing arsitektur deep learning dan machine learning yang tergabung dalam ensemble.
-                        </p>
-                      </div>
-                      <button
-                        onClick={handleRetrain}
-                        disabled={isPending}
+                  {/* Panel Pengujian Batasan Metodologis Penambahan Pair */}
+                  <div style={{ background: 'var(--card)', borderRadius: 20, padding: 24, border: '1px solid var(--line2)' }}>
+                    <h3 style={{ margin: '0 0 6px', font: "500 17px 'IBM Plex Sans',sans-serif" }}>
+                      Uji Penegakan Batasan Masalah (Tambah Pasangan Aset Baru)
+                    </h3>
+                    <p style={{ margin: '0 0 16px', font: "400 13.5px/1.6 'IBM Plex Sans',sans-serif", color: 'var(--ink2)', maxWidth: 740 }}>
+                      Ruang lingkup penelitian dibatasi pada tiga pasangan aset. Menambah pasangan di luar itu membuat sistem tidak sesuai dengan batasan masalah. Anda dapat menguji pengajuan pasangan baru untuk memverifikasi penolakan metodologis sistem.
+                    </p>
+
+                    <form onSubmit={handleTestAddPair} style={{ display: 'flex', gap: 10, flexWrap: 'wrap', maxWidth: 500 }}>
+                      <input
+                        type="text"
+                        value={testPairInput}
+                        onChange={(e) => setTestPairInput(e.target.value)}
+                        placeholder="Masukkan simbol pasangan aset"
                         style={{
-                          padding: '10px 20px',
+                          flex: 1,
+                          minWidth: 200,
+                          padding: '10px 14px',
                           borderRadius: 10,
-                          border: 'none',
-                          background: 'var(--ink)',
-                          color: 'var(--onink)',
-                          font: "500 13px 'IBM Plex Sans',sans-serif",
-                          cursor: isPending ? 'wait' : 'pointer',
+                          border: '1px solid var(--line)',
+                          background: 'var(--surf2)',
+                          color: 'var(--ink)',
+                          font: "500 13px 'IBM Plex Mono',monospace",
                         }}
-                      >
-                        {isPending ? 'Melatih Ulang…' : 'Latih Ulang Model'}
-                      </button>
-                    </div>
-                  </Reveal>
-
-                  <div style={{ background: 'var(--card)', borderRadius: 22, padding: 24, boxShadow: 'var(--shadow)' }}>
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', font: "400 13.5px 'IBM Plex Sans',sans-serif" }}>
-                        <thead>
-                          <tr style={{ borderBottom: '1px solid var(--line)', textAlign: 'left', font: "400 11px 'IBM Plex Mono',monospace", color: 'var(--ink3)', textTransform: 'uppercase' }}>
-                            <th style={{ padding: '10px 12px' }}>Model</th>
-                            <th style={{ padding: '10px 12px' }}>Algoritma Dasar</th>
-                            <th style={{ padding: '10px 12px' }}>Status</th>
-                            <th style={{ padding: '10px 12px' }}>MAPE</th>
-                            <th style={{ padding: '10px 12px' }}>MAE</th>
-                            <th style={{ padding: '10px 12px' }}>Akurasi Arah</th>
-                            <th style={{ padding: '10px 12px' }}>Terakhir Dilatih</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {statusData.models?.map((m) => (
-                            <tr key={m.id} style={{ borderBottom: '1px solid var(--line2)' }}>
-                              <td style={{ padding: '14px 12px', fontWeight: 500 }}>{m.model_name}</td>
-                              <td style={{ padding: '14px 12px', color: 'var(--ink2)' }}>{m.algorithm}</td>
-                              <td style={{ padding: '14px 12px' }}>
-                                <span style={{ padding: '3px 8px', borderRadius: 999, background: 'var(--lime)', color: 'var(--onlime)', fontSize: 11, fontFamily: "'IBM Plex Mono',monospace" }}>
-                                  {m.status}
-                                </span>
-                              </td>
-                              <td style={{ padding: '14px 12px', fontFamily: "'IBM Plex Mono',monospace" }}>{m.mape}%</td>
-                              <td style={{ padding: '14px 12px', fontFamily: "'IBM Plex Mono',monospace" }}>{m.mae}%</td>
-                              <td style={{ padding: '14px 12px', fontFamily: "'IBM Plex Mono',monospace", color: 'var(--up)' }}>{m.accuracy}%</td>
-                              <td style={{ padding: '14px 12px', fontSize: 12, color: 'var(--ink3)' }}>
-                                {new Date(m.last_trained_at).toLocaleString('id-ID')}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 5. PAIR MANAGEMENT */}
-              {activeTab === 'pairs' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                  <Reveal order={1}>
-                    <h2 style={{ margin: 0, font: "400 32px 'PP Editorial New',serif" }}>Manajemen Pasangan Cryptocurrency</h2>
-                    <p style={{ margin: '6px 0 0', font: "400 14px 'IBM Plex Sans',sans-serif", color: 'var(--ink2)' }}>
-                      Daftar aset cryptocurrency pair yang digunakan pada modul peramalan dan kalkulasi risiko portofolio.
-                    </p>
-                  </Reveal>
-
-                  {/* Tambah Pair Baru */}
-                  <div style={{ background: 'var(--card)', borderRadius: 22, padding: 24, border: '1px solid var(--line2)' }}>
-                    <h4 style={{ margin: '0 0 14px', font: "500 15px 'IBM Plex Sans',sans-serif" }}>Tambah Pasangan Kripto Baru</h4>
-                    {pairError && <div style={{ color: 'var(--down)', fontSize: 13, marginBottom: 12 }}>{pairError}</div>}
-                    <form onSubmit={handleAddPair} style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <label style={{ fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", color: 'var(--ink3)' }}>SIMBOL PAIR</label>
-                        <input
-                          type="text"
-                          placeholder="cth. SOL/USDT"
-                          value={newSymbol}
-                          onChange={(e) => setNewSymbol(e.target.value)}
-                          style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surf2)', color: 'var(--ink)', font: "400 13px 'IBM Plex Mono',monospace" }}
-                        />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <label style={{ fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", color: 'var(--ink3)' }}>BASE ASSET</label>
-                        <input
-                          type="text"
-                          placeholder="cth. SOL"
-                          value={newBase}
-                          onChange={(e) => setNewBase(e.target.value)}
-                          style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surf2)', color: 'var(--ink)', font: "400 13px 'IBM Plex Mono',monospace" }}
-                        />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <label style={{ fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", color: 'var(--ink3)' }}>QUOTE ASSET</label>
-                        <input
-                          type="text"
-                          placeholder="USDT"
-                          value={newQuote}
-                          onChange={(e) => setNewQuote(e.target.value)}
-                          style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surf2)', color: 'var(--ink)', font: "400 13px 'IBM Plex Mono',monospace" }}
-                        />
-                      </div>
+                      />
                       <button
                         type="submit"
+                        disabled={isPendingPairTest}
                         style={{
-                          padding: '10px 20px',
+                          padding: '10px 18px',
                           borderRadius: 10,
                           border: 'none',
                           background: 'var(--ink)',
-                          color: 'var(--onink)',
+                          color: '#fff',
                           font: "500 13px 'IBM Plex Sans',sans-serif",
-                          cursor: 'pointer',
+                          cursor: isPendingPairTest ? 'not-allowed' : 'pointer',
                         }}
                       >
-                        Tambah Pair
+                        {isPendingPairTest ? 'Menguji…' : 'Ajukan Penambahan'}
                       </button>
                     </form>
-                  </div>
 
-                  {/* Tabel Daftar Pairs */}
-                  <div style={{ background: 'var(--card)', borderRadius: 22, padding: 24, boxShadow: 'var(--shadow)' }}>
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', font: "400 13.5px 'IBM Plex Sans',sans-serif" }}>
-                        <thead>
-                          <tr style={{ borderBottom: '1px solid var(--line)', textAlign: 'left', font: "400 11px 'IBM Plex Mono',monospace", color: 'var(--ink3)', textTransform: 'uppercase' }}>
-                            <th style={{ padding: '10px 12px' }}>Simbol</th>
-                            <th style={{ padding: '10px 12px' }}>Aset Dasar</th>
-                            <th style={{ padding: '10px 12px' }}>Aset Kuotasi</th>
-                            <th style={{ padding: '10px 12px' }}>Status</th>
-                            <th style={{ padding: '10px 12px' }}>Waktu Registrasi</th>
-                            <th style={{ padding: '10px 12px', textAlign: 'right' }}>Aksi</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {pairs.map((p) => (
-                            <tr key={p.id} style={{ borderBottom: '1px solid var(--line2)' }}>
-                              <td style={{ padding: '14px 12px', font: "500 14px 'IBM Plex Mono',monospace" }}>{p.symbol}</td>
-                              <td style={{ padding: '14px 12px' }}>{p.base_asset}</td>
-                              <td style={{ padding: '14px 12px' }}>{p.quote_asset}</td>
-                              <td style={{ padding: '14px 12px' }}>
-                                <span style={{ padding: '3px 8px', borderRadius: 999, fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", background: p.status === 'ACTIVE' ? 'var(--lime)' : 'var(--surf2)', color: p.status === 'ACTIVE' ? 'var(--onlime)' : 'var(--ink4)' }}>
-                                  {p.status === 'ACTIVE' ? 'AKTIF' : 'NONAKTIF'}
-                                </span>
-                              </td>
-                              <td style={{ padding: '14px 12px', fontSize: 12, color: 'var(--ink3)' }}>
-                                {new Date(p.created_at).toLocaleDateString('id-ID')}
-                              </td>
-                              <td style={{ padding: '14px 12px', textAlign: 'right' }}>
-                                <button
-                                  onClick={() => handleTogglePair(p.id)}
-                                  style={{
-                                    padding: '5px 12px',
-                                    borderRadius: 8,
-                                    border: '1px solid var(--line)',
-                                    background: 'var(--card)',
-                                    color: 'var(--ink)',
-                                    font: "400 12px 'IBM Plex Sans',sans-serif",
-                                    cursor: 'pointer',
-                                    marginRight: 8,
-                                  }}
-                                >
-                                  {p.status === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'}
-                                </button>
-                                <button
-                                  onClick={() => handleDeletePair(p.id, p.symbol)}
-                                  style={{
-                                    padding: '5px 12px',
-                                    borderRadius: 8,
-                                    border: '1px solid var(--line)',
-                                    background: 'var(--card)',
-                                    color: 'var(--down)',
-                                    font: "400 12px 'IBM Plex Sans',sans-serif",
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  Hapus
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 6. LOGS */}
-              {activeTab === 'logs' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                  <Reveal order={1}>
-                    <h2 style={{ margin: 0, font: "400 32px 'PP Editorial New',serif" }}>Log Proses & Aktivitas Sistem</h2>
-                    <p style={{ margin: '6px 0 0', font: "400 14px 'IBM Plex Sans',sans-serif", color: 'var(--ink2)' }}>
-                      Catatan kronologis aktivitas operasional sistem peramalan cryptocurrency.
-                    </p>
-                  </Reveal>
-
-                  <div style={{ background: 'var(--card)', borderRadius: 22, padding: 24, boxShadow: 'var(--shadow)' }}>
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', font: "400 13px 'IBM Plex Sans',sans-serif" }}>
-                        <thead>
-                          <tr style={{ borderBottom: '1px solid var(--line)', textAlign: 'left', font: "400 11px 'IBM Plex Mono',monospace", color: 'var(--ink3)', textTransform: 'uppercase' }}>
-                            <th style={{ padding: '10px 12px' }}>Waktu</th>
-                            <th style={{ padding: '10px 12px' }}>Pelaku</th>
-                            <th style={{ padding: '10px 12px' }}>Aksi</th>
-                            <th style={{ padding: '10px 12px' }}>Rincian Kejadian</th>
-                            <th style={{ padding: '10px 12px' }}>IP Address</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {statusData.logs?.map((log) => (
-                            <tr key={log.id} style={{ borderBottom: '1px solid var(--line2)' }}>
-                              <td style={{ padding: '12px', color: 'var(--ink3)', whiteSpace: 'nowrap', fontSize: 12 }}>
-                                {new Date(log.created_at).toLocaleString('id-ID')}
-                              </td>
-                              <td style={{ padding: '12px', fontWeight: 500 }}>{log.user_name || 'System'}</td>
-                              <td style={{ padding: '12px', fontFamily: "'IBM Plex Mono',monospace", fontSize: 12 }}>
-                                {log.action}
-                              </td>
-                              <td style={{ padding: '12px', color: 'var(--ink2)' }}>{log.details}</td>
-                              <td style={{ padding: '12px', fontFamily: "'IBM Plex Mono',monospace", fontSize: 12, color: 'var(--ink4)' }}>
-                                {log.ip_address}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    {testPairResult && (
+                      <div
+                        style={{
+                          marginTop: 18,
+                          padding: '14px 18px',
+                          borderRadius: 12,
+                          background: testPairResult.sukses ? 'color-mix(in srgb, var(--lime) 15%, transparent)' : 'color-mix(in srgb, var(--down) 12%, transparent)',
+                          border: testPairResult.sukses ? '1px solid var(--lime)' : '1px solid var(--down)',
+                          color: testPairResult.sukses ? 'var(--ink)' : 'var(--down)',
+                          font: "400 13px/1.55 'IBM Plex Sans',sans-serif",
+                        }}
+                      >
+                        <strong>{testPairResult.sukses ? 'Hasil:' : 'Penolakan Metodologis (HTTP 400):'}</strong>{' '}
+                        {testPairResult.pesan}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

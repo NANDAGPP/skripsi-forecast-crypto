@@ -8,6 +8,7 @@
  */
 
 import { rng, series } from './rng';
+import type { PeranAktor } from './auth';
 
 // ── Mode data contoh ────────────────────────────────────────
 export const SAMPLE_MODE = true;
@@ -362,9 +363,9 @@ export const INITIAL_BATCH_STATUS: BatchStatusResponse = {
     {
       tanggal: '2026-09-27',
       mulai: '2026-09-27T00:05:00Z',
-      lama_detik: 12,
+      lama_detik: 127,
       status: 'gagal',
-      catatan: 'API bursa tidak merespons setelah tiga kali percobaan',
+      catatan: 'API bursa tidak merespons setelah tiga kali percobaan.',
     },
     {
       tanggal: '2026-09-26',
@@ -390,9 +391,9 @@ export const INITIAL_BATCH_STATUS: BatchStatusResponse = {
     {
       tanggal: '2026-09-23',
       mulai: '2026-09-23T00:05:00Z',
-      lama_detik: 48,
+      lama_detik: 216,
       status: 'gagal',
-      catatan: 'Galat integritas data: Data lilin harga (candlestick) ETH/USDT tidak lengkap pada bursa sumber',
+      catatan: 'Galat integritas data: Ketidaksesuaian data candlestick dari sumber',
     },
     {
       tanggal: '2026-09-22',
@@ -491,6 +492,7 @@ export type AdminAccount = {
   id: string;
   nama: string;
   surel: string;
+  peran: PeranAktor;
   aktif: boolean;
   dibuat: string;
   terakhir_masuk: string | null;
@@ -501,6 +503,7 @@ export const INITIAL_ACCOUNTS: AdminAccount[] = [
     id: 'adm-01',
     nama: 'Operator Harian',
     surel: 'admin@contoh',
+    peran: 'ADMINISTRATOR',
     aktif: true,
     dibuat: '2026-09-01T03:00:00Z',
     terakhir_masuk: '2026-09-29T01:12:00Z',
@@ -509,6 +512,7 @@ export const INITIAL_ACCOUNTS: AdminAccount[] = [
     id: 'adm-02',
     nama: 'Operator Cadangan',
     surel: 'operator2@contoh',
+    peran: 'ADMINISTRATOR',
     aktif: true,
     dibuat: '2026-09-05T08:30:00Z',
     terakhir_masuk: '2026-09-28T14:20:00Z',
@@ -517,6 +521,7 @@ export const INITIAL_ACCOUNTS: AdminAccount[] = [
     id: 'super-01',
     nama: 'Super Administrator Utama',
     surel: 'superadmin@contoh',
+    peran: 'SUPER_ADMINISTRATOR',
     aktif: true,
     dibuat: '2026-08-15T00:00:00Z',
     terakhir_masuk: '2026-09-30T06:00:00Z',
@@ -563,44 +568,44 @@ export const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
   },
   {
     waktu: '2026-09-28T21:40:00Z',
-    aktor: 'superadmin@contoh',
-    tindakan: 'Mengubah panjang jendela bobot',
-    sasaran: '30 → 45 hari',
+    aktor: 'admin@contoh',
+    tindakan: 'Memicu pelatihan ulang model',
+    sasaran: 'ETH/USDT',
     hasil: 'berhasil',
   },
   {
     waktu: '2026-09-28T14:03:00Z',
-    aktor: 'admin@contoh',
-    tindakan: 'Menonaktifkan pair',
-    sasaran: 'ADA/USDT',
-    hasil: 'gagal',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Mengubah nilai portofolio ilustratif pada dasbor',
+    sasaran: 'Rp 100.000.000 → Rp 150.000.000',
+    hasil: 'berhasil',
   },
   {
     waktu: '2026-09-28T10:15:00Z',
     aktor: 'admin@contoh',
-    tindakan: 'Menambah pair',
+    tindakan: 'Menambah pasangan aset',
     sasaran: 'ADA/USDT',
     hasil: 'gagal',
   },
   {
     waktu: '2026-09-27T16:20:00Z',
     aktor: 'superadmin@contoh',
-    tindakan: 'Mengubah portofolio ilustratif',
-    sasaran: 'Rp 100.000.000 → Rp 150.000.000',
+    tindakan: 'Mengubah waktu eksekusi batch',
+    sasaran: '00:00 → 00:05 WIB',
     hasil: 'berhasil',
   },
   {
     waktu: '2026-09-27T01:30:00Z',
     aktor: 'admin@contoh',
-    tindakan: 'Pemeriksaan kegagalan batch',
-    sasaran: 'Batch 2026-09-27',
+    tindakan: 'Memicu pelatihan ulang model',
+    sasaran: 'BTC/USDT',
     hasil: 'berhasil',
   },
   {
     waktu: '2026-09-26T11:00:00Z',
     aktor: 'superadmin@contoh',
-    tindakan: 'Mengubah konfigurasi operasional',
-    sasaran: 'Jendela bobot 120 hari',
+    tindakan: 'Mengubah panjang jendela bobot',
+    sasaran: 'Jendela bobot 120 hari (maksimum 90 hari)',
     hasil: 'gagal',
   },
   {
@@ -626,23 +631,23 @@ export const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
   },
   {
     waktu: '2026-09-24T08:05:00Z',
-    aktor: 'operator2@contoh',
-    tindakan: 'Pemeriksaan status batch',
-    sasaran: 'Batch 2026-09-24',
+    aktor: 'admin@contoh',
+    tindakan: 'Memicu pelatihan ulang model',
+    sasaran: 'BNB/USDT',
     hasil: 'berhasil',
   },
   {
     waktu: '2026-09-23T08:15:00Z',
     aktor: 'admin@contoh',
-    tindakan: 'Pemeriksaan kegagalan batch',
-    sasaran: 'Batch 2026-09-23',
+    tindakan: 'Memicu pelatihan ulang model',
+    sasaran: 'BTC/USDT',
     hasil: 'berhasil',
   },
   {
     waktu: '2026-09-22T15:20:00Z',
     aktor: 'superadmin@contoh',
-    tindakan: 'Mengubah tingkat kepercayaan risiko',
-    sasaran: '95% → 99%',
+    tindakan: 'Memperbarui alamat surel administrator',
+    sasaran: 'adm-02 (operator2@forecatforlyfe.id)',
     hasil: 'berhasil',
   },
   {
@@ -662,16 +667,16 @@ export const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
   {
     waktu: '2026-09-21T07:30:00Z',
     aktor: 'admin@contoh',
-    tindakan: 'Pemeriksaan status batch',
-    sasaran: 'Batch 2026-09-21',
+    tindakan: 'Memicu pelatihan ulang model',
+    sasaran: 'ETH/USDT',
     hasil: 'berhasil',
   },
   {
     waktu: '2026-09-20T16:45:00Z',
     aktor: 'admin@contoh',
-    tindakan: 'Menambah pair',
-    sasaran: 'SOL/USDT',
-    hasil: 'gagal',
+    tindakan: 'Memicu pelatihan ulang model',
+    sasaran: 'BNB/USDT',
+    hasil: 'berhasil',
   },
   {
     waktu: '2026-09-20T11:10:00Z',
@@ -683,29 +688,29 @@ export const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
   {
     waktu: '2026-09-19T14:25:00Z',
     aktor: 'admin@contoh',
-    tindakan: 'Memicu pelatihan ulang model',
-    sasaran: 'BTC/USDT',
+    tindakan: 'Mengaktifkan kembali pemantauan pasangan aset',
+    sasaran: 'BNB/USDT',
     hasil: 'berhasil',
   },
   {
     waktu: '2026-09-18T18:00:00Z',
-    aktor: 'superadmin@contoh',
-    tindakan: 'Mengubah waktu eksekusi batch',
-    sasaran: '00:00 → 00:05 WIB',
+    aktor: 'admin@contoh',
+    tindakan: 'Menonaktifkan pemantauan pasangan aset',
+    sasaran: 'BNB/USDT',
     hasil: 'berhasil',
   },
   {
     waktu: '2026-09-17T09:12:00Z',
     aktor: 'admin@contoh',
-    tindakan: 'Pemeriksaan status batch',
-    sasaran: 'Batch 2026-09-17',
+    tindakan: 'Memicu pelatihan ulang model',
+    sasaran: 'BTC/USDT',
     hasil: 'berhasil',
   },
   {
-    waktu: '2026-09-16T15:50:00Z',
-    aktor: 'superadmin@contoh',
-    tindakan: 'Mengubah portofolio ilustratif',
-    sasaran: 'Nilai negatif (-50.000.000)',
+    waktu: '2026-09-16T00:07:30Z',
+    aktor: 'admin@contoh',
+    tindakan: 'Memicu pelatihan ulang model',
+    sasaran: 'BTC/USDT (ditolak karena proses batch harian sedang berjalan)',
     hasil: 'gagal',
   },
   {
@@ -717,17 +722,17 @@ export const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
   },
   {
     waktu: '2026-09-14T08:30:00Z',
-    aktor: 'operator2@contoh',
-    tindakan: 'Pemeriksaan status batch',
-    sasaran: 'Batch 2026-09-14',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Memperbarui nama akun administrator',
+    sasaran: 'adm-02 (Operator Cadangan)',
     hasil: 'berhasil',
   },
   {
     waktu: '2026-09-12T13:15:00Z',
     aktor: 'superadmin@contoh',
-    tindakan: 'Mengubah tingkat kepercayaan risiko',
-    sasaran: 'Nilai 85%',
-    hasil: 'gagal',
+    tindakan: 'Mengubah nilai portofolio ilustratif pada dasbor',
+    sasaran: 'Rp 75.000.000 → Rp 100.000.000',
+    hasil: 'berhasil',
   },
   {
     waktu: '2026-09-10T10:00:00Z',
@@ -752,9 +757,9 @@ export const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
   },
   {
     waktu: '2026-09-02T14:10:00Z',
-    aktor: 'admin@contoh',
-    tindakan: 'Pemeriksaan status batch',
-    sasaran: 'Batch 2026-09-02',
+    aktor: 'superadmin@contoh',
+    tindakan: 'Reset kata sandi administrator',
+    sasaran: 'adm-01 (admin@contoh)',
     hasil: 'berhasil',
   },
   {

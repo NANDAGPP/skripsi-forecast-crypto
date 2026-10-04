@@ -32,7 +32,6 @@ export default function ConsentGate({ children }: { children: ReactNode }) {
   // Bypass persetujuan responden riset untuk rute login dan administrasi
   if (
     pathname.startsWith('/login') ||
-    pathname.startsWith('/register') ||
     pathname.startsWith('/admin') ||
     pathname.startsWith('/super-admin')
   ) {
