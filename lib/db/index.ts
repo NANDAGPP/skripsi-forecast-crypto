@@ -5,7 +5,9 @@ import { seedDatabase } from './seed';
 
 let dbInstance: DatabaseSync | null = null;
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+const DATA_DIR = process.env.VERCEL
+  ? path.join('/tmp', 'data')
+  : path.join(process.cwd(), 'data');
 const DB_PATH = path.join(DATA_DIR, 'app.db');
 
 export function getDb(): DatabaseSync {
@@ -13,6 +15,15 @@ export function getDb(): DatabaseSync {
 
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+
+  const bundledDb = path.join(process.cwd(), 'data', 'app.db');
+  if (process.env.VERCEL && !fs.existsSync(DB_PATH) && fs.existsSync(bundledDb)) {
+    try {
+      fs.copyFileSync(bundledDb, DB_PATH);
+    } catch {
+      // fallback jika copy gagal, DatabaseSync akan inisialisasi baru
+    }
   }
 
   const db = new DatabaseSync(DB_PATH);
