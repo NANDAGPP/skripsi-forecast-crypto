@@ -14,15 +14,16 @@ import { SESSION_COOKIE_NAME } from '@/lib/auth/session';
  * 2. Seluruh intersepsi lalu lintas rute HTML maupun panggilan API pengelolaan
  *    terpusat di sini sebelum mencapai Next.js page renderer atau route handler.
  * 
- * ATURAN AKSES (Pemisahan Kewenangan Tanpa Pewarisan Peran):
+ * ATURAN AKSES (Pewarisan Kewenangan Super Administrator & Log Tindakan):
  * - 6 Halaman Pengguna publik (/, /kalkulator-risiko, /performa-model,
  *   /validasi, /cara-kerja-sistem, /persetujuan) serta /login selalu terbuka untuk publik.
- * - Halaman /admin dan endpoint /api/admin/* HANYA untuk peran ADMINISTRATOR.
- *   Super Administrator yang membuka /admin ditolak (403).
+ * - Halaman /admin dan endpoint /api/admin/* dapat diakses oleh peran ADMINISTRATOR
+ *   maupun SUPER_ADMINISTRATOR (Super Administrator mewarisi seluruh kewenangan).
  * - Halaman /super-admin dan endpoint /api/super/* HANYA untuk peran SUPER_ADMINISTRATOR.
- *   Administrator yang membuka /super-admin ditolak (403).
- * - Pemisahan ini mutlak agar catatan jejak log tindakan (KF-21) tidak bias
- *   dan dapat dipertanggungjawabkan pada pengujian sistem.
+ *   Administrator yang membuka /super-admin tetap ditolak (403).
+ * - Alasan pemisahan bukan lagi ketiadaan pewarisan, melainkan bahwa setiap tindakan
+ *   dicatat beserta identitas pelakunya pada log tindakan, sehingga tindakan yang
+ *   sama tetap dapat dibedakan menurut siapa yang melakukannya.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -68,11 +69,14 @@ export async function middleware(request: NextRequest) {
   //      rusak, atau telah kedaluwarsa), sistem HARUS MENOLAK.
   //    - Jika proses pemeriksaan mengalami galat runtime (melempar galat/exception),
   //      sistem HARUS MENOLAK.
-  //    - Jika peran aktor tidak cocok secara presisi dengan kewenangan rute yang
-  //      diminta (tanpa pewarisan antar peran), sistem HARUS MENOLAK.
-  //    - Akses HANYA dan HANYA BOLEH lolos (NextResponse.next()) apabila seluruh tahapan
-  //      pemeriksaan sukses 100%, identitas aktor terverifikasi secara sah, dan perannya
-  //      cocok secara eksklusif.
+  //    - Jika peran aktor tidak termasuk dalam peran yang diizinkan untuk rute tersebut,
+  //      sistem HARUS MENOLAK.
+  //    - Akses HANYA lolos (NextResponse.next()) apabila identitas berhasil ditentukan
+  //      dan perannya termasuk yang diizinkan (Super Administrator mewarisi seluruh
+  //      kewenangan pengguna dan administrator — dapat membuka sekaligus menjalankan semua fungsi).
+  //    - Alasan pemisahan bukan lagi ketiadaan pewarisan, melainkan bahwa setiap tindakan
+  //      dicatat beserta identitas pelakunya pada log tindakan, sehingga tindakan yang
+  //      sama tetap dapat dibedakan menurut siapa yang melakukannya.
   //    ─────────────────────────────────────────────────────────────────────────
   try {
     const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -85,12 +89,12 @@ export async function middleware(request: NextRequest) {
       return tolakAkses(request, pathname, 'Akses ditolak: Identitas aktor tidak dapat ditentukan atau token sesi tidak sah.', 401);
     }
 
-    // Pengecekan kecocokan peran eksklusif tanpa pewarisan:
+    // Pengecekan kecocokan peran (Super Administrator mewarisi seluruh kewenangan pengguna dan administrator):
     if (isProtectedAdmin) {
-      if (payload.role === 'ADMIN') {
+      if (payload.role === 'ADMIN' || payload.role === 'SUPER_ADMIN') {
         return NextResponse.next();
       }
-      return tolakAkses(request, pathname, 'Akses ditolak: Rute ini khusus untuk peran ADMINISTRATOR. Peran Anda tidak memiliki wewenang.', 403);
+      return tolakAkses(request, pathname, 'Akses ditolak: Rute ini khusus untuk peran ADMINISTRATOR atau SUPER_ADMINISTRATOR. Peran Anda tidak memiliki wewenang.', 403);
     }
 
     if (isProtectedSuper) {

@@ -77,10 +77,10 @@ describe('Unit & Integration: Authentication & RBAC System', () => {
       expect(getDefaultRedirectForRole('ADMIN')).toBe('/admin');
     });
 
-    it('TC-RBAC-03: Memastikan hak akses tertinggi SUPER_ADMIN', () => {
+    it('TC-RBAC-03: Memastikan hak akses tertinggi SUPER_ADMIN (mewarisi seluruh kewenangan pengguna dan administrator — diterima di /admin)', () => {
       expect(canAccessSuperAdmin('SUPER_ADMIN')).toBe(true);
-      expect(canAccessAdmin('SUPER_ADMIN')).toBe(true);
-      expect(canAccessUser('SUPER_ADMIN')).toBe(true);
+      expect(canAccessAdmin('SUPER_ADMIN')).toBe(true); // Super Administrator diterima di /admin dan /api/admin/* (mewarisi kewenangan admin)
+      expect(canAccessUser('SUPER_ADMIN')).toBe(true); // Super Administrator mewarisi kewenangan pengguna
       expect(getDefaultRedirectForRole('SUPER_ADMIN')).toBe('/super-admin');
     });
 
