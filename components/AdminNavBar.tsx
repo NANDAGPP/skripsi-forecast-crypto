@@ -78,9 +78,9 @@ export default function AdminNavBar({
             {isSuper ? 'Super Admin' : 'Administrator'}
           </span>
 
-          {/* Quick link switcher untuk Super Admin */}
-          {isSuper && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 10 }}>
+          {/* Quick link switcher */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 10 }}>
+            {isSuper ? (
               <Link
                 href="/admin"
                 style={{
@@ -92,9 +92,9 @@ export default function AdminNavBar({
               >
                 Panel Admin
               </Link>
-              <span style={{ color: 'var(--ink4)', fontSize: 11 }}>•</span>
+            ) : (
               <Link
-                href="/"
+                href="/super-admin"
                 style={{
                   font: "400 12px 'IBM Plex Sans',sans-serif",
                   color: 'var(--ink3)',
@@ -102,10 +102,22 @@ export default function AdminNavBar({
                   borderBottom: '1px dashed var(--linkline)',
                 }}
               >
-                Halaman User
+                Super Admin
               </Link>
-            </div>
-          )}
+            )}
+            <span style={{ color: 'var(--ink4)', fontSize: 11 }}>•</span>
+            <Link
+              href="/"
+              style={{
+                font: "400 12px 'IBM Plex Sans',sans-serif",
+                color: 'var(--ink3)',
+                textDecoration: 'none',
+                borderBottom: '1px dashed var(--linkline)',
+              }}
+            >
+              Halaman User
+            </Link>
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>

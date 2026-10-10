@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import {
   subscribeConsent,
   getConsentSnapshot,
@@ -82,7 +83,31 @@ export default function ConsentGate({ children }: { children: ReactNode }) {
             }}
           >
             <Logo size="md" />
-            <ThemeToggle />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <Link
+                href="/admin"
+                style={{
+                  font: "400 12.5px 'IBM Plex Sans',sans-serif",
+                  color: 'var(--ink2)',
+                  textDecoration: 'none',
+                  borderBottom: '1px solid var(--linkline)',
+                }}
+              >
+                Admin
+              </Link>
+              <Link
+                href="/super-admin"
+                style={{
+                  font: "400 12.5px 'IBM Plex Sans',sans-serif",
+                  color: 'var(--ink2)',
+                  textDecoration: 'none',
+                  borderBottom: '1px solid var(--linkline)',
+                }}
+              >
+                Super Admin
+              </Link>
+              <ThemeToggle />
+            </div>
           </div>
         </div>
 

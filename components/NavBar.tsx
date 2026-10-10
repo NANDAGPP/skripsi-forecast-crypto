@@ -46,6 +46,8 @@ export default function NavBar(props: NavBarProps) {
                 <Link href="/performa-model" style={linkStyle}>Performa model</Link>
                 <Link href="/validasi" style={linkStyle}>Validasi</Link>
                 <Link href="/cara-kerja-sistem" style={linkStyle}>Cara kerja sistem</Link>
+                <Link href="/admin" style={linkStyle}>Admin</Link>
+                <Link href="/super-admin" style={linkStyle}>Super Admin</Link>
               </span>
             </div>
             <span style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
@@ -63,9 +65,17 @@ export default function NavBar(props: NavBarProps) {
                 {props.subtitle}
               </span>
             </div>
-            <Link href="/" style={{ font: "400 13px 'IBM Plex Sans',sans-serif", textDecoration: 'none', borderBottom: '1px solid var(--linkline)' }}>
-              ← Kembali ke dasbor
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <Link href="/" style={{ font: "400 13px 'IBM Plex Sans',sans-serif", textDecoration: 'none', borderBottom: '1px solid var(--linkline)' }}>
+                ← Kembali ke dasbor
+              </Link>
+              <Link href="/admin" style={{ font: "400 13px 'IBM Plex Sans',sans-serif", textDecoration: 'none', borderBottom: '1px solid var(--linkline)' }}>
+                Admin
+              </Link>
+              <Link href="/super-admin" style={{ font: "400 13px 'IBM Plex Sans',sans-serif", textDecoration: 'none', borderBottom: '1px solid var(--linkline)' }}>
+                Super Admin
+              </Link>
+            </div>
             <ThemeToggle />
           </>
         )}
